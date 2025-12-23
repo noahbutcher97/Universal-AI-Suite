@@ -129,7 +129,6 @@ def change_install_path():
         time.sleep(1)
 
 def install_node():
-    # ... (Same as before, abbreviated for brevity) ...
     CONSOLE.print(Panel("[bold cyan]Installing Node.js...[/]", title="Node.js Setup"))
     if shutil.which("node"):
         CONSOLE.print("[green]Node.js is already installed![/]")
@@ -231,7 +230,8 @@ def smoke_test():
         for i in range(15):
             time.sleep(1)
             try:
-                if urllib.request.urlopen("http://127.0.0.1:8199").getcode() == 200: success = True; break
+                if urllib.request.urlopen("http://127.0.0.1:8199").getcode() == 200:
+                    success = True; break
             except: pass
         proc.terminate()
         
