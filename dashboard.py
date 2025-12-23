@@ -43,32 +43,12 @@ def main_wrapper():
 
         # --- Logic: Dev Tools & CLI Service ---
         class DevService:
-            # UPDATED CLI MAP based on correct documentation
             CLI_MAP = {
-                "Claude CLI": {
-                    "cmd": ["npm", "install", "@anthropic-ai/claude-code"],
-                    "type": "npm",
-                    "package": "@anthropic-ai/claude-code",
-                    "bin": "claude"
-                },
-                "Gemini CLI": {
-                    "cmd": ["npm", "install", "@google/gemini-cli"],
-                    "type": "npm",
-                    "package": "@google/gemini-cli",
-                    "bin": "gemini"
-                },
-                "Codex CLI": {
-                    "cmd": ["npm", "install", "@openai/codex"],
-                    "type": "npm",
-                    "package": "@openai/codex",
-                    "bin": "codex"
-                },
-                "Grok CLI": {
-                    "cmd": ["npm", "install", "@vibe-kit/grok-cli"],
-                    "type": "npm",
-                    "package": "@vibe-kit/grok-cli",
-                    "bin": "grok"
-                }
+                "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "package": "@anthropic-ai/claude-code", "bin": "claude"},
+                "Gemini CLI": {"cmd": ["npm", "install", "@google/gemini-cli"], "type": "npm", "package": "@google/gemini-cli", "bin": "gemini"},
+                "Codex CLI": {"cmd": ["npm", "install", "@openai/codex"], "type": "npm", "package": "@openai/codex", "bin": "codex"},
+                "Grok CLI": {"cmd": ["npm", "install", "@vibe-kit/grok-cli"], "type": "npm", "package": "@vibe-kit/grok-cli", "bin": "grok"},
+                "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek-cli"], "type": "pip", "package": "deepseek-cli", "bin": "deepseek-cli"}
             }
 
             @staticmethod
@@ -90,14 +70,28 @@ def main_wrapper():
                 tool = DevService.CLI_MAP.get(tool_name)
                 if not tool: return False
                 
-                # Check Binary in PATH (Fastest & Most Reliable for Global Tools)
-                if "bin" in tool and shutil.which(tool["bin"]): return True
+                # Check Binary in PATH
+                if "bin" in tool:
+                    if shutil.which(tool["bin"]): return True
+                    # Special check for DeepSeek alternative binary name
+                    if tool_name == "DeepSeek CLI" and shutil.which("deepseek"): return True
                 
-                # Check NPM Global List
+                # Check NPM Global
                 if tool["type"] == "npm":
                     if not DevService.is_npm_installed(): return False
                     return DevService.check_cmd_output(["npm", "list", "-g", tool["package"], "--depth=0"])
                 
+                # Check Pip Global
+                if tool["type"] == "pip":
+                    pkg = tool["package"]
+                    if platform.system() == "Windows":
+                        if DevService.check_cmd_output(["py", "-m", "pip", "show", pkg]): return True
+                        if DevService.check_cmd_output(["python", "-m", "pip", "show", pkg]): return True
+                    else:
+                        if DevService.check_cmd_output(["python3", "-m", "pip", "show", pkg]): return True
+                        if DevService.check_cmd_output(["python", "-m", "pip", "show", pkg]): return True
+                    if DevService.check_cmd_output([sys.executable, "-m", "pip", "show", pkg]): return True
+
                 return False
 
             @staticmethod
@@ -115,25 +109,23 @@ def main_wrapper():
 
                 cmd = list(tool["cmd"])
                 if tool["type"] == "npm":
-                    if scope == "system":
-                        cmd.insert(2, "-g") # Global
-                    # else: npm install local (no flag needed)
+                    if scope == "system": cmd.insert(2, "-g")
+                elif tool["type"] == "pip":
+                    if scope == "system" and platform.system() == "Windows": cmd = ["py", "-m"] + cmd
+                    elif scope == "user": cmd.insert(2, "--user")
                 return cmd
 
         class ComfyService:
             @staticmethod
             def detect_hardware():
-                gpu_name = "CPU (Slow)"
-                vram_gb = 0
+                gpu_name = "CPU (Slow)"; vram_gb = 0
                 try:
                     if shutil.which("nvidia-smi"):
                         output = subprocess.check_output(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]).decode()
                         name, mem = output.strip().split(',')
-                        gpu_name = name
-                        vram_gb = int(float(mem) / 1024)
+                        gpu_name = name; vram_gb = int(float(mem) / 1024)
                     elif platform.system() == "Darwin" and platform.machine() == "arm64":
-                        gpu_name = "Apple Silicon (MPS)"
-                        vram_gb = 16 
+                        gpu_name = "Apple Silicon (MPS)"; vram_gb = 16 
                 except: pass
                 return gpu_name, vram_gb
 
@@ -143,7 +135,6 @@ def main_wrapper():
                 model_tier = "sd15"
                 if vram >= 16: model_tier = "flux"
                 elif vram >= 8: model_tier = "sdxl"
-                
                 if answers["style"] == "Photorealistic":
                     if model_tier == "flux": recipe["checkpoints"].append(("Flux1-Dev", "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors"))
                     elif model_tier == "sdxl": recipe["checkpoints"].append(("Juggernaut XL", "https://civitai.com/api/download/models/JuggernautXL"))
@@ -155,7 +146,6 @@ def main_wrapper():
                     if model_tier == "flux": recipe["checkpoints"].append(("Flux1-Schnell", "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors"))
                     elif model_tier == "sdxl": recipe["checkpoints"].append(("SDXL Base 1.0", "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"))
                     else: recipe["checkpoints"].append(("SD 1.5 Pruned", "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"))
-
                 if answers["media"] in ["Video", "Mixed"]:
                     recipe["custom_nodes"].extend(["https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git", "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git"])
                 if answers["consistency"]: recipe["custom_nodes"].append("https://github.com/cubiq/ComfyUI_IPAdapter_plus.git")
@@ -179,10 +169,8 @@ def main_wrapper():
                 ctk.CTkButton(self.sidebar, text=text, height=40, anchor="w", fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"), command=lambda: self.show_frame(name)).pack(fill="x", padx=10, pady=5)
 
             def init_frames(self):
-                self.frames["overview"] = self.create_overview()
-                self.frames["devtools"] = self.create_devtools()
-                self.frames["comfyui"] = self.create_comfyui()
-                self.frames["settings"] = self.create_settings()
+                self.frames["overview"] = self.create_overview(); self.frames["devtools"] = self.create_devtools()
+                self.frames["comfyui"] = self.create_comfyui(); self.frames["settings"] = self.create_settings()
 
             def show_frame(self, name):
                 for f in self.frames.values(): f.pack_forget()
@@ -251,27 +239,24 @@ def main_wrapper():
                     row = ctk.CTkFrame(frame); row.pack(fill="x", pady=5)
                     ctk.CTkLabel(row, text=provider, width=150, anchor="w").pack(side="left", padx=10)
                     ent = ctk.CTkEntry(row, show="*"); ent.pack(side="left", fill="x", expand=True, padx=10)
-                    val = CONFIG["api_keys"].get(provider, ""); 
+                    val = CONFIG["api_keys"].get(provider, "")
                     if val: ent.insert(0, val)
                     self.key_entries[provider] = ent
                 ctk.CTkButton(frame, text="Save Keys", command=self.save_keys).pack(pady=20)
                 return frame
 
             def install_node(self):
-                cmd = DevService.install_node_cmd()
-                subprocess.Popen(cmd)
+                cmd = DevService.install_node_cmd(); subprocess.Popen(cmd)
                 messagebox.showinfo("Installer", "Launched Node.js installer.")
 
             def install_clis(self):
-                scope = self.scope_var.get()
-                targets = [t for t, v in self.cli_vars.items() if v.get() and not DevService.is_installed(t)]
+                scope = self.scope_var.get(); targets = [t for t, v in self.cli_vars.items() if v.get() and not DevService.is_installed(t)]
                 if not targets: messagebox.showinfo("Info", "No new tools selected."); return
                 win = ctk.CTkToplevel(self); win.title("Installing..."); win.geometry("400x300")
                 log = ctk.CTkTextbox(win); log.pack(fill="both", expand=True)
                 def run():
                     for t in targets:
-                        cmd = DevService.install_tool(t, scope)
-                        log.insert("end", f"Installing {t}...\n"); log.see("end")
+                        cmd = DevService.install_tool(t, scope); log.insert("end", f"Installing {t}...\n"); log.see("end")
                         try: subprocess.call(cmd, shell=(platform.system()=="Windows")); log.insert("end", "Done.\n")
                         except Exception as e: log.insert("end", f"Error: {e}\n")
                     log.insert("end", "All tasks finished.")
@@ -279,9 +264,7 @@ def main_wrapper():
 
             def open_wizard(self):
                 win = ctk.CTkToplevel(self); win.title("ComfyUI Wizard"); win.geometry("500x650")
-                gpu, vram = ComfyService.detect_hardware()
-                ctk.CTkLabel(win, text="System Scan", font=("Arial", 14, "bold")).pack(pady=10)
-                ctk.CTkLabel(win, text=f"Detected: {gpu} ({vram} GB VRAM)", text_color="yellow").pack()
+                gpu, vram = ComfyService.detect_hardware(); ctk.CTkLabel(win, text=f"Detected: {gpu} ({vram} GB VRAM)", text_color="yellow").pack(pady=10)
                 ctk.CTkLabel(win, text="1. Art Style?", font=("Arial", 12, "bold")).pack(anchor="w", padx=20, pady=(20,5))
                 style_var = ctk.StringVar(value="General"); ctk.CTkSegmentedButton(win, values=["Photorealistic", "Anime", "General"], variable=style_var).pack(fill="x", padx=20)
                 ctk.CTkLabel(win, text="2. Media Type?", font=("Arial", 12, "bold")).pack(anchor="w", padx=20, pady=(20,5))
@@ -297,14 +280,18 @@ def main_wrapper():
                 messagebox.showinfo("Wizard", "Recipe Generated! Check console for log."); print("Recipe:", recipe)
 
             def save_keys(self):
-                for k, ent in self.key_entries.items(): CONFIG["api_keys"][k] = ent.get()
-                save_config(CONFIG)
-                messagebox.showinfo("Saved", "API Keys saved securely.")
+                for k, ent in self.key_entries.items(): CONFIG["api_keys"].update({k: ent.get()})
+                save_config(CONFIG); messagebox.showinfo("Saved", "API Keys saved securely.")
 
         app = App(); app.mainloop()
-
     except Exception as e:
-        print("\n\n" + "="*60); print("CRITICAL ERROR: The Dashboard crashed."); print("="*60); traceback.print_exc(); print("="*60); print("\nPlease copy the error message above."); input("Press Enter to Exit...")
+        print("\n\n" + "="*60)
+        print("CRITICAL ERROR: The Dashboard crashed.")
+        print("="*60)
+        traceback.print_exc()
+        print("="*60)
+        print("\nPlease copy the error message above.")
+        input("Press Enter to Exit...")
 
 if __name__ == "__main__":
     main_wrapper()
