@@ -41,10 +41,6 @@ INSTALL_DIR = CONFIG["install_path"]
 
 # --- Backend Service (Internal API) ---
 class ModelService:
-    """
-    Internal API for Model Management.
-    Supports: List, Add, Delete, Create Folder.
-    """
     MODEL_TYPES = {
         "Checkpoints": "checkpoints",
         "LoRAs": "loras",
@@ -62,9 +58,7 @@ class ModelService:
     def list_files(model_type, subfolder=""):
         root = ModelService.get_root_path(model_type)
         target_dir = os.path.join(root, subfolder)
-        
-        if not os.path.exists(target_dir):
-            return []
+        if not os.path.exists(target_dir): return []
 
         items = []
         for name in os.listdir(target_dir):
@@ -82,29 +76,21 @@ class ModelService:
     @staticmethod
     def add_file(model_type, source_path, dest_subfolder=""):
         dest_dir = os.path.join(ModelService.get_root_path(model_type), dest_subfolder)
-        if not os.path.exists(dest_dir):
-            os.makedirs(dest_dir)
-        
+        if not os.path.exists(dest_dir): os.makedirs(dest_dir)
         filename = os.path.basename(source_path)
         dest_path = os.path.join(dest_dir, filename)
-        
-        # Simulated "API" response
         try:
             shutil.copy2(source_path, dest_path)
             return {"status": "success", "path": dest_path}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        except Exception as e: return {"status": "error", "message": str(e)}
 
     @staticmethod
     def delete_item(path):
         try:
-            if os.path.isdir(path):
-                shutil.rmtree(path)
-            else:
-                os.remove(path)
+            if os.path.isdir(path): shutil.rmtree(path)
+            else: os.remove(path)
             return {"status": "success"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        except Exception as e: return {"status": "error", "message": str(e)}
 
     @staticmethod
     def create_folder(model_type, folder_name, subfolder=""):
@@ -112,28 +98,22 @@ class ModelService:
         try:
             os.makedirs(target_dir, exist_ok=False)
             return {"status": "success", "path": target_dir}
-        except FileExistsError:
-            return {"status": "error", "message": "Folder already exists"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        except Exception as e: return {"status": "error", "message": str(e)}
 
 # --- Helper Logic ---
 class Logic:
     @staticmethod
     def get_venv_python():
-        if platform.system() == "Windows":
-            return os.path.join(INSTALL_DIR, "venv", "Scripts", "python.exe")
+        if platform.system() == "Windows": return os.path.join(INSTALL_DIR, "venv", "Scripts", "python.exe")
         return os.path.join(INSTALL_DIR, "venv", "bin", "python")
 
     @staticmethod
     def get_venv_pip():
-        if platform.system() == "Windows":
-            return os.path.join(INSTALL_DIR, "venv", "Scripts", "pip.exe")
+        if platform.system() == "Windows": return os.path.join(INSTALL_DIR, "venv", "Scripts", "pip.exe")
         return os.path.join(INSTALL_DIR, "venv", "bin", "pip")
 
     @staticmethod
-    def is_installed():
-        return os.path.exists(os.path.join(INSTALL_DIR, "main.py"))
+    def is_installed(): return os.path.exists(os.path.join(INSTALL_DIR, "main.py"))
 
     @staticmethod
     def open_folder(path):
@@ -146,10 +126,8 @@ class Logic:
 class DashboardApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-
         self.title("ComfyUI Universal Dashboard")
         self.geometry("1100x750")
-
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -157,23 +135,12 @@ class DashboardApp(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(5, weight=1)
 
-        self.logo = ctk.CTkLabel(self.sidebar, text="ComfyUI\nDashboard", font=ctk.CTkFont(size=20, weight="bold"))
-        self.logo.grid(row=0, column=0, padx=20, pady=(20, 10))
-
-        self.btn_overview = ctk.CTkButton(self.sidebar, text="Overview", command=lambda: self.show_frame("overview"))
-        self.btn_overview.grid(row=1, column=0, padx=20, pady=10)
-
-        self.btn_install = ctk.CTkButton(self.sidebar, text="Install / Update", command=lambda: self.show_frame("install"))
-        self.btn_install.grid(row=2, column=0, padx=20, pady=10)
-
-        self.btn_models = ctk.CTkButton(self.sidebar, text="Model Manager", command=lambda: self.show_frame("models"))
-        self.btn_models.grid(row=3, column=0, padx=20, pady=10)
-        
-        self.btn_settings = ctk.CTkButton(self.sidebar, text="Settings", command=lambda: self.show_frame("settings"))
-        self.btn_settings.grid(row=4, column=0, padx=20, pady=10)
-
-        self.btn_exit = ctk.CTkButton(self.sidebar, text="Exit", fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), command=self.destroy)
-        self.btn_exit.grid(row=6, column=0, padx=20, pady=20)
+        ctk.CTkLabel(self.sidebar, text="ComfyUI\nDashboard", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, padx=20, pady=(20, 10))
+        ctk.CTkButton(self.sidebar, text="Overview", command=lambda: self.show_frame("overview")).grid(row=1, column=0, padx=20, pady=10)
+        ctk.CTkButton(self.sidebar, text="Install / Update", command=lambda: self.show_frame("install")).grid(row=2, column=0, padx=20, pady=10)
+        ctk.CTkButton(self.sidebar, text="Model Manager", command=lambda: self.show_frame("models")).grid(row=3, column=0, padx=20, pady=10)
+        ctk.CTkButton(self.sidebar, text="Settings", command=lambda: self.show_frame("settings")).grid(row=4, column=0, padx=20, pady=10)
+        ctk.CTkButton(self.sidebar, text="Exit", fg_color="transparent", border_width=2, text_color=("gray10", "#DCE4EE"), command=self.destroy).grid(row=6, column=0, padx=20, pady=20)
 
         self.content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.content.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
@@ -191,45 +158,29 @@ class DashboardApp(ctk.CTk):
         for frame in self.frames.values(): frame.pack_forget()
         self.frames[name].pack(fill="both", expand=True)
 
-    # --- Overview ---
     def setup_overview_frame(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         self.frames["overview"] = frame
-
         self.status_label = ctk.CTkLabel(frame, text="Checking status...", font=ctk.CTkFont(size=16))
         self.status_label.pack(pady=10, anchor="w")
-
-        self.metrics_frame = ctk.CTkFrame(frame)
-        self.metrics_frame.pack(fill="x", pady=10)
         
-        ctk.CTkLabel(self.metrics_frame, text="System Metrics").pack(pady=5)
+        metrics = ctk.CTkFrame(frame)
+        metrics.pack(fill="x", pady=10)
+        ctk.CTkLabel(metrics, text="System Metrics").pack(pady=5)
+        self.cpu_bar = ctk.CTkProgressBar(metrics); self.cpu_bar.pack(fill="x", padx=10, pady=5)
+        self.cpu_label = ctk.CTkLabel(metrics, text="CPU: 0%"); self.cpu_label.pack(anchor="e", padx=10)
+        self.ram_bar = ctk.CTkProgressBar(metrics); self.ram_bar.set(0); self.ram_bar.pack(fill="x", padx=10, pady=5)
+        self.ram_label = ctk.CTkLabel(metrics, text="RAM: 0%"); self.ram_label.pack(anchor="e", padx=10)
         
-        self.cpu_bar = ctk.CTkProgressBar(self.metrics_frame)
-        self.cpu_bar.pack(fill="x", padx=10, pady=5)
-        self.cpu_label = ctk.CTkLabel(self.metrics_frame, text="CPU: 0%")
-        self.cpu_label.pack(anchor="e", padx=10)
-
-        self.ram_bar = ctk.CTkProgressBar(self.metrics_frame)
-        self.ram_bar.set(0)
-        self.ram_bar.pack(fill="x", padx=10, pady=5)
-        self.ram_label = ctk.CTkLabel(self.metrics_frame, text="RAM: 0%")
-        self.ram_label.pack(anchor="e", padx=10)
-
         self.btn_launch = ctk.CTkButton(frame, text="🚀 Launch ComfyUI", height=50, font=ctk.CTkFont(size=18), command=self.launch_comfyui)
         self.btn_launch.pack(pady=30, fill="x")
-
-        self.btn_smoke = ctk.CTkButton(frame, text="🧪 Run Smoke Test", fg_color="gray", command=self.run_smoke_test)
-        self.btn_smoke.pack(pady=5, fill="x")
+        ctk.CTkButton(frame, text="🧪 Run Smoke Test", fg_color="gray", command=self.run_smoke_test).pack(pady=5, fill="x")
 
     def update_metrics(self):
         try:
-            cpu = psutil.cpu_percent() / 100
-            ram = psutil.virtual_memory().percent / 100
-            self.cpu_bar.set(cpu)
-            self.cpu_label.configure(text=f"CPU: {int(cpu*100)}%")
-            self.ram_bar.set(ram)
-            self.ram_label.configure(text=f"RAM: {int(ram*100)}%")
-            
+            cpu = psutil.cpu_percent() / 100; ram = psutil.virtual_memory().percent / 100
+            self.cpu_bar.set(cpu); self.cpu_label.configure(text=f"CPU: {int(cpu*100)}%")
+            self.ram_bar.set(ram); self.ram_label.configure(text=f"RAM: {int(ram*100)}%")
             if Logic.is_installed():
                 self.status_label.configure(text=f"✅ ComfyUI Installed at: {INSTALL_DIR}", text_color="green")
                 self.btn_launch.configure(state="normal")
@@ -239,106 +190,62 @@ class DashboardApp(ctk.CTk):
         except: pass
         self.after(2000, self.update_metrics)
 
-    # --- Install ---
     def setup_install_frame(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         self.frames["install"] = frame
-
-        controls = ctk.CTkFrame(frame)
-        controls.pack(fill="x", pady=10)
-
+        controls = ctk.CTkFrame(frame); controls.pack(fill="x", pady=10)
         ctk.CTkButton(controls, text="Install (Clean)", command=self.do_install).pack(side="left", padx=5, expand=True, fill="x")
         ctk.CTkButton(controls, text="Update (Git Pull)", command=self.do_update).pack(side="left", padx=5, expand=True, fill="x")
         ctk.CTkButton(controls, text="Install Node.js", fg_color="orange", command=self.do_install_node).pack(side="left", padx=5, expand=True, fill="x")
+        self.console_log = ctk.CTkTextbox(frame, font=("Consolas", 12)); self.console_log.pack(fill="both", expand=True, pady=10)
+        self.log("Ready.")
 
-        self.console_log = ctk.CTkTextbox(frame, font=("Consolas", 12))
-        self.console_log.pack(fill="both", expand=True, pady=10)
-        self.log("Ready for tasks.")
+    def log(self, msg):
+        self.console_log.insert("end", str(msg) + "\n"); self.console_log.see("end")
 
-    def log(self, message):
-        self.console_log.insert("end", str(message) + "\n")
-        self.console_log.see("end")
-
-    # --- Model Manager (New) ---
     def setup_models_frame(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         self.frames["models"] = frame
-
-        # Tabs for categories
-        self.model_tab_view = ctk.CTkTabview(frame, command=self.on_tab_change)
-        self.model_tab_view.pack(fill="both", expand=True)
         
-        for category in ModelService.MODEL_TYPES.keys():
-            self.model_tab_view.add(category)
-
-        # Toolbar
-        toolbar = ctk.CTkFrame(frame)
-        toolbar.pack(fill="x", pady=5)
+        self.cat_var = ctk.StringVar(value="Checkpoints")
+        # Define on_cat_change BEFORE using it in the button command
+        # Note: In python class methods, order doesn't matter for calling, but self.method must exist.
         
+        self.cat_buttons = ctk.CTkSegmentedButton(frame, values=list(ModelService.MODEL_TYPES.keys()), command=self.on_cat_change, variable=self.cat_var)
+        self.cat_buttons.pack(fill="x", pady=(0, 10))
+
+        toolbar = ctk.CTkFrame(frame); toolbar.pack(fill="x", pady=5)
         ctk.CTkButton(toolbar, text="Import Files", command=self.import_model_files, fg_color="green").pack(side="left", padx=5)
         ctk.CTkButton(toolbar, text="Create Folder", command=self.create_model_folder).pack(side="left", padx=5)
         ctk.CTkButton(toolbar, text="Refresh", command=self.refresh_file_list).pack(side="left", padx=5)
         ctk.CTkButton(toolbar, text="Delete Selected", command=self.delete_selected_item, fg_color="red").pack(side="right", padx=5)
 
-        # TreeView (Using standard tk widget with custom style)
-        self.tree_frame = ctk.CTkFrame(self.model_tab_view) # Container
-        # We attach the tree to the *currently selected tab* dynamically, 
-        # but since Tabview manages frames, we actually just need ONE tree that updates data.
-        
-        # Style
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", borderwidth=0)
         style.map('Treeview', background=[('selected', '#1f538d')])
         
         self.tree = ttk.Treeview(frame, columns=("size", "date"), show="tree headings", selectmode="browse")
-        self.tree.heading("#0", text="Name", anchor="w")
-        self.tree.heading("size", text="Size", anchor="e")
-        self.tree.heading("date", text="Date", anchor="w")
-        self.tree.column("#0", width=300)
-        self.tree.column("size", width=100, anchor="e")
-        self.tree.column("date", width=150)
-        
-        # Pack tree manually inside the tab view logic? 
-        # No, easier to just pack it below tabs and filter data based on tab.
-        # But `ctk.CTkTabview` contains frames. Let's put the tree inside the active tab? 
-        # Actually, simpler: Put tree below tab bar, or just use Buttons as tabs if we want a single tree.
-        # Let's stick to the Tabview for visual clarity, but re-parent the tree? No, that's messy.
-        
-        # Better approach: One Tree, Tabs just act as filters.
-        # So we won't use CTkTabview for content, just as a selector.
-        
-        # Wait, CTkTabview IS a container. Let's just use a SegmentedButton for categories.
-        self.model_tab_view.pack_forget() # Remove the complex one
-        
-        self.cat_var = ctk.StringVar(value="Checkpoints")
-        self.cat_buttons = ctk.CTkSegmentedButton(frame, values=list(ModelService.MODEL_TYPES.keys()), command=self.on_cat_change, variable=self.cat_var)
-        self.cat_buttons.pack(fill="x", pady=(0, 10))
-        
+        self.tree.heading("#0", text="Name", anchor="w"); self.tree.heading("size", text="Size", anchor="e"); self.tree.heading("date", text="Date", anchor="w")
+        self.tree.column("#0", width=300); self.tree.column("size", width=100, anchor="e"); self.tree.column("date", width=150)
         self.tree.pack(fill="both", expand=True, pady=5)
         
-        # Initial Load
-        self.current_subfolder = "" 
-        self.refresh_file_list()
+        self.current_subfolder = ""
+        # Defer initial load to avoid startup lag/race condition
+        self.after(100, self.refresh_file_list)
 
-    def on_tab_change(self, value):
-        self.current_subfolder = "" # Reset to root of category
+    def on_cat_change(self, value):
+        self.current_subfolder = ""
         self.refresh_file_list()
 
     def refresh_file_list(self):
-        # Clear
         for i in self.tree.get_children(): self.tree.delete(i)
-        
         category = self.cat_var.get()
         items = ModelService.list_files(category, self.current_subfolder)
-        
         for item in items:
-            # Format size
             size_str = f"{item['size'] / (1024*1024):.1f} MB" if item['type'] == "file" else ""
             icon = "📁 " if item['type'] == "folder" else "📄 "
-            
             iid = self.tree.insert("", "end", text=f"{icon}{item['name']}", values=(size_str, item['date']))
-            # Store full path in tag or simple storage
             self.tree.item(iid, tags=(item['path'], item['type']))
 
     def import_model_files(self):
@@ -349,11 +256,11 @@ class DashboardApp(ctk.CTk):
             for f in files:
                 res = ModelService.add_file(category, f, self.current_subfolder)
                 if res["status"] == "success": count += 1
-            messagebox.showinfo("Import", f"Successfully imported {count} files.")
+            messagebox.showinfo("Import", f"Imported {count} files.")
             self.refresh_file_list()
 
     def create_model_folder(self):
-        name = ctk.CTkInputDialog(text="Enter folder name:", title="New Folder").get_input()
+        name = ctk.CTkInputDialog(text="Folder Name:", title="New Folder").get_input()
         if name:
             res = ModelService.create_folder(self.cat_var.get(), name, self.current_subfolder)
             if res["status"] == "success": self.refresh_file_list()
@@ -362,34 +269,22 @@ class DashboardApp(ctk.CTk):
     def delete_selected_item(self):
         selected = self.tree.selection()
         if not selected: return
-        
         item = self.tree.item(selected[0])
-        path = item['tags'][0]
-        name = item['text']
-        
-        if messagebox.askyesno("Delete", f"Are you sure you want to delete '{name}'?"):
-            res = ModelService.delete_item(path)
-            if res["status"] == "success": self.refresh_file_list()
-            else: messagebox.showerror("Error", res["message"])
+        if messagebox.askyesno("Delete", f"Delete '{item['text']}'?"):
+            ModelService.delete_item(item['tags'][0])
+            self.refresh_file_list()
 
-    # --- Settings ---
     def setup_settings_frame(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         self.frames["settings"] = frame
-        
         ctk.CTkLabel(frame, text="Installation Path").pack(anchor="w")
-        self.path_entry = ctk.CTkEntry(frame)
-        self.path_entry.insert(0, INSTALL_DIR)
-        self.path_entry.pack(fill="x", pady=5)
-        
+        self.path_entry = ctk.CTkEntry(frame); self.path_entry.insert(0, INSTALL_DIR); self.path_entry.pack(fill="x", pady=5)
         ctk.CTkButton(frame, text="Browse...", command=self.browse_path).pack(anchor="e", pady=5)
         ctk.CTkButton(frame, text="Save Config", command=self.save_settings, fg_color="green").pack(pady=20)
 
     def browse_path(self):
         path = filedialog.askdirectory(initialdir=INSTALL_DIR)
-        if path:
-            self.path_entry.delete(0, "end")
-            self.path_entry.insert(0, path)
+        if path: self.path_entry.delete(0, "end"); self.path_entry.insert(0, path)
 
     def save_settings(self):
         global INSTALL_DIR
@@ -397,14 +292,12 @@ class DashboardApp(ctk.CTk):
         CONFIG["install_path"] = new_path
         save_config(CONFIG)
         INSTALL_DIR = new_path
-        messagebox.showinfo("Saved", "Settings saved. Restarting UI might be required for some changes.")
+        messagebox.showinfo("Saved", "Settings saved.")
 
-    # --- Actions ---
     def launch_comfyui(self):
         if not Logic.is_installed(): return
         args = ["--auto-launch"]
         if platform.system() == "Darwin": args.append("--force-fp16")
-        
         subprocess.Popen([Logic.get_venv_python(), "main.py"] + args, cwd=INSTALL_DIR)
         messagebox.showinfo("Launch", "ComfyUI Launched!")
 
@@ -413,8 +306,7 @@ class DashboardApp(ctk.CTk):
         def _test():
             try:
                 proc = subprocess.Popen([Logic.get_venv_python(), "main.py", "--port", "8199", "--cpu"], cwd=INSTALL_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                import urllib.request
-                success = False
+                import urllib.request; success = False
                 for _ in range(15):
                     time.sleep(1)
                     try:
@@ -423,19 +315,17 @@ class DashboardApp(ctk.CTk):
                 proc.terminate()
                 self.log("Smoke Test Passed: ✅" if success else "Smoke Test Failed: ❌")
             except Exception as e: self.log(f"Test Error: {e}")
-        self.run_thread(self.run_smoke_test.__name__, _test) # Fixed thread name usage
+        self.run_thread("test", _test)
 
-    def run_thread(self, name, target):
-        threading.Thread(target=target, daemon=True).start()
+    def run_thread(self, name, target): threading.Thread(target=target, daemon=True).start()
 
     def do_install(self):
         def _install():
-            self.log("Cloning Repo...")
-            if not os.path.exists(INSTALL_DIR):
-                subprocess.call(["git", "clone", REPO_URL, INSTALL_DIR])
-            self.log("Creating Venv...")
+            self.log("Cloning...")
+            if not os.path.exists(INSTALL_DIR): subprocess.call(["git", "clone", REPO_URL, INSTALL_DIR])
+            self.log("Venv...")
             subprocess.call([sys.executable, "-m", "venv", "venv"], cwd=INSTALL_DIR)
-            self.log("Installing Deps...")
+            self.log("Deps...")
             pip = Logic.get_venv_pip()
             subprocess.call([pip, "install", "--upgrade", "pip"], cwd=INSTALL_DIR)
             subprocess.call([pip, "install", "torch", "torchvision", "torchaudio"], cwd=INSTALL_DIR)
@@ -447,7 +337,7 @@ class DashboardApp(ctk.CTk):
         def _update():
             self.log("Git Pulling...")
             subprocess.call(["git", "pull"], cwd=INSTALL_DIR)
-            self.log("Updating Requirements...")
+            self.log("Updating Deps...")
             subprocess.call([Logic.get_venv_pip(), "install", "-r", "requirements.txt"], cwd=INSTALL_DIR)
             self.log("Updated.")
         self.run_thread("update", _update)
@@ -457,7 +347,7 @@ class DashboardApp(ctk.CTk):
             self.log("Installing Node.js...")
             if platform.system() == "Darwin": subprocess.call(["brew", "install", "node"])
             elif platform.system() == "Windows": subprocess.call(["winget", "install", "-e", "--id", "OpenJS.NodeJS"])
-            self.log("Node Install command finished.")
+            self.log("Finished.")
         self.run_thread("node", _node)
 
 if __name__ == "__main__":
