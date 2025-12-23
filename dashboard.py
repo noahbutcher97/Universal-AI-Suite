@@ -13,7 +13,6 @@ import traceback
 # --- CRASH CATCHER START ---
 def main_wrapper():
     try:
-        # Import GUI libraries only inside try block to catch import errors
         import tkinter as tk
         from tkinter import ttk, filedialog, messagebox
         import customtkinter as ctk
@@ -280,7 +279,12 @@ def main_wrapper():
                     row = ctk.CTkFrame(frame); row.pack(fill="x", pady=5)
                     ctk.CTkLabel(row, text=provider, width=150, anchor="w").pack(side="left", padx=10)
                     ent = ctk.CTkEntry(row, show="*"); ent.pack(side="left", fill="x", expand=True, padx=10)
-                    if provider in CONFIG["api_keys"]: ent.insert(0, CONFIG["api_keys"Поставщик])
+                    
+                    # FIX: Use safe .get() and clean syntax to avoid file corruption
+                    stored_val = CONFIG["api_keys"].get(provider, "")
+                    if stored_val:
+                        ent.insert(0, stored_val)
+                        
                     self.key_entries[provider] = ent
                 ctk.CTkButton(frame, text="Save Keys", command=self.save_keys).pack(pady=20)
                 return frame
