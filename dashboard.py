@@ -44,10 +44,11 @@ def main_wrapper():
 
         # --- Logic: Dev Tools & CLI Service ---
         class DevService:
+            # CLI_MAP: Added 'bin' to pip tools for better detection
             CLI_MAP = {
                 "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "package": "@anthropic-ai/claude-code", "bin": "claude"},
                 "Gemini CLI": {"cmd": ["pip", "install", "-U", "google-generativeai"], "type": "pip", "package": "google-generativeai"},
-                "Codex CLI (OpenAI)": {"cmd": ["pip", "install", "openai"], "type": "pip", "package": "openai"},
+                "Codex CLI (OpenAI)": {"cmd": ["pip", "install", "openai"], "type": "pip", "package": "openai", "bin": "openai"},
                 "Grok CLI": {"cmd": ["pip", "install", "xai-sdk"], "type": "pip", "package": "xai-sdk"},
                 "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek"], "type": "pip", "package": "deepseek"}
             }
@@ -64,19 +65,49 @@ def main_wrapper():
                 tool = DevService.CLI_MAP.get(tool_name)
                 if not tool: return False
                 
+                # --- NPM Strategy ---
                 if tool["type"] == "npm":
                     if not DevService.is_npm_installed(): return False
+                    # 1. Check Binary in PATH
                     if "bin" in tool and shutil.which(tool["bin"]): return True
+                    # 2. Check Global Packages
                     try:
                         subprocess.check_call(["npm", "list", "-g", tool["package"], "--depth=0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=(platform.system()=="Windows"))
                         return True
                     except: return False
                     
+                # --- Pip Strategy ---
                 if tool["type"] == "pip":
+                    # 1. Check Binary in PATH (Best for CLI tools)
+                    if "bin" in tool and shutil.which(tool["bin"]): return True
+                    
+                    # 2. Check Local Environment (Dashboard Venv)
                     try:
                         subprocess.check_call([sys.executable, "-m", "pip", "show", tool["package"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         return True
-                    except: return False
+                    except: pass
+                    
+                    # 3. Check System/Global Environment (Fallback)
+                    # This allows detecting tools installed on the user's main python
+                    try:
+                        # Try 'pip' first
+                        subprocess.check_call(["pip", "show", tool["package"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=(platform.system()=="Windows"))
+                        return True
+                    except: pass
+                    
+                    try:
+                        # Try 'python -m pip'
+                        subprocess.check_call(["python", "-m", "pip", "show", tool["package"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=(platform.system()=="Windows"))
+                        return True
+                    except: pass
+                    
+                    # 4. Check 'python3' for Mac/Linux
+                    if platform.system() != "Windows":
+                        try:
+                            subprocess.check_call(["python3", "-m", "pip", "show", tool["package"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            return True
+                        except: pass
+
                 return False
 
             @staticmethod
@@ -280,11 +311,9 @@ def main_wrapper():
                     ctk.CTkLabel(row, text=provider, width=150, anchor="w").pack(side="left", padx=10)
                     ent = ctk.CTkEntry(row, show="*"); ent.pack(side="left", fill="x", expand=True, padx=10)
                     
-                    # FIX: Use safe .get() and clean syntax to avoid file corruption
                     stored_val = CONFIG["api_keys"].get(provider, "")
                     if stored_val:
                         ent.insert(0, stored_val)
-                        
                     self.key_entries[provider] = ent
                 ctk.CTkButton(frame, text="Save Keys", command=self.save_keys).pack(pady=20)
                 return frame
@@ -340,7 +369,7 @@ def main_wrapper():
                 print("Recipe:", recipe)
 
             def save_keys(self):
-                for k, ent in self.key_entries.items(): CONFIG["api_keys"][k] = ent.get()
+                for k, ent in self.key_entries.items(): CONFIG["api_keys"].update({k: ent.get()})
                 save_config(CONFIG)
                 messagebox.showinfo("Saved", "API Keys saved securely.")
 
