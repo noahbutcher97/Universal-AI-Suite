@@ -84,7 +84,8 @@ def get_system_metrics():
     try:
         cpu = psutil.cpu_percent(interval=None)
         memory = psutil.virtual_memory().percent
-        disk = psutil.disk_usage(INSTALL_DIR if os.path.exists(INSTALL_DIR) else os.path.expanduser("~"))percent
+        # FIX: Ensure dot is present
+        disk = psutil.disk_usage(INSTALL_DIR if os.path.exists(INSTALL_DIR) else os.path.expanduser("~")).percent
         return cpu, memory, disk
     except:
         return 0, 0, 0
@@ -115,7 +116,7 @@ def run_cmd(cmd_list, cwd=None):
 
 def change_install_path():
     CONSOLE.print(Panel("[bold cyan]Configure Installation Path[/]", title="Settings"))
-    CONSOLE.print(f"Current Path: [blue]{INSTALL_DIR}[/]")
+    CONSOLE.print(f"Current Path: [blue]{INSTALL_DIR}[/blue]")
     CONSOLE.print("\nEnter the full path to your ComfyUI folder (or where you want to install it).")
     CONSOLE.print("[dim]Example: D:\\AI\\ComfyUI[/]")
     
@@ -235,8 +236,8 @@ def smoke_test():
             except: pass
         proc.terminate()
         
-        if success: CONSOLE.print(Panel("[bold green]PASS: Server responded![/]", border_style="green"))
-        else: CONSOLE.print(Panel("[bold red]FAIL: No response.[/]", border_style="red"))
+        if success: CONSOLE.print(Panel("[bold green]PASS: Server responded![/]"), border_style="green")
+        else: CONSOLE.print(Panel("[bold red]FAIL: No response.[/]"), border_style="red")
     except Exception as e:
         CONSOLE.print(f"[bold red]Error: {e}[/]")
     
@@ -333,5 +334,5 @@ def main():
         if choice == "7": launch_app()
 
 if __name__ == "__main__":
-    try: main()
+    try: main() 
     except KeyboardInterrupt: pass
