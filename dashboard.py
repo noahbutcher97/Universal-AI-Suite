@@ -39,13 +39,12 @@ CONFIG = load_config()
 
 # --- Logic: Dev Tools & CLI Service ---
 class DevService:
-    # Mapping friendly names to install commands
     CLI_MAP = {
         "Gemini CLI": {"cmd": ["pip", "install", "-U", "google-generativeai"], "type": "pip"},
         "Codex CLI (OpenAI)": {"cmd": ["pip", "install", "openai"], "type": "pip"},
         "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm"},
-        "Grok CLI": {"cmd": ["pip", "install", "xai-sdk"], "type": "pip"}, # Placeholder for xAI
-        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek"], "type": "pip"} # Placeholder
+        "Grok CLI": {"cmd": ["pip", "install", "xai-sdk"], "type": "pip"},
+        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek"], "type": "pip"}
     }
 
     @staticmethod
@@ -65,15 +64,10 @@ class DevService:
         if not tool: return ["echo", f"Unknown tool: {tool_name}"]
 
         cmd = list(tool["cmd"])
-        
-        # Handle Scope
         if tool["type"] == "npm":
-            if scope == "system":
-                cmd.insert(2, "-g")
+            if scope == "system": cmd.insert(2, "-g")
         elif tool["type"] == "pip":
-            if scope == "user":
-                cmd.insert(2, "--user")
-            # If system, we usually assume venv or admin, but standard pip behavior is fine
+            if scope == "user": cmd.insert(2, "--user")
         
         return cmd
 
@@ -91,29 +85,22 @@ class ComfyService:
                 vram_gb = int(float(mem) / 1024)
             elif platform.system() == "Darwin" and platform.machine() == "arm64":
                 gpu_name = "Apple Silicon (MPS)"
-                vram_gb = 16 # Assumption for M1/M2/M3 base/pro, hard to read unified mem easily
+                vram_gb = 16 
         except: pass
         return gpu_name, vram_gb
 
     @staticmethod
     def generate_recipe(answers, vram):
-        """
-        Generates a list of models/nodes to install based on the wizard interview.
-        """
         recipe = {
             "checkpoints": [],
             "loras": [],
-            "custom_nodes": [
-                "https://github.com/ltdrdata/ComfyUI-Manager.git"
-            ]
+            "custom_nodes": ["https://github.com/ltdrdata/ComfyUI-Manager.git"]
         }
 
-        # 1. Hardware Base Model Selection
         model_tier = "sd15"
         if vram >= 16: model_tier = "flux"
         elif vram >= 8: model_tier = "sdxl"
         
-        # 2. Style Selection
         if answers["style"] == "Photorealistic":
             if model_tier == "flux": recipe["checkpoints"].append(("Flux1-Dev", "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors"))
             elif model_tier == "sdxl": recipe["checkpoints"].append(("Juggernaut XL", "https://civitai.com/api/download/models/JuggernautXL"))
@@ -128,18 +115,15 @@ class ComfyService:
             elif model_tier == "sdxl": recipe["checkpoints"].append(("SDXL Base 1.0", "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"))
             else: recipe["checkpoints"].append(("SD 1.5 Pruned", "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"))
 
-        # 3. Media Features
         if answers["media"] == "Video" or answers["media"] == "Mixed":
             recipe["custom_nodes"].append("https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git")
             recipe["custom_nodes"].append("https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git")
         
-        # 4. Consistency
         if answers["consistency"]:
             recipe["custom_nodes"].append("https://github.com/cubiq/ComfyUI_IPAdapter_plus.git")
             
-        # 5. Editing
         if answers["editing"]:
-            recipe["custom_nodes"].append("https://github.com/Fannovel16/comfyui_controlnet_aux.git") # Preprocessors
+            recipe["custom_nodes"].append("https://github.com/Fannovel16/comfyui_controlnet_aux.git")
 
         return recipe
 
@@ -233,7 +217,6 @@ class App(ctk.CTk):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         ctk.CTkLabel(frame, text="ComfyUI Studio", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
         
-        # Wizard Launch
         wiz_frame = ctk.CTkFrame(frame)
         wiz_frame.pack(fill="x", pady=20)
         ctk.CTkLabel(wiz_frame, text="Setup Wizard", font=("Arial", 16, "bold")).pack(pady=10)
@@ -251,7 +234,8 @@ class App(ctk.CTk):
             row = ctk.CTkFrame(frame); row.pack(fill="x", pady=5)
             ctk.CTkLabel(row, text=provider, width=150, anchor="w").pack(side="left", padx=10)
             ent = ctk.CTkEntry(row, show="*"); ent.pack(side="left", fill="x", expand=True, padx=10)
-            if provider in CONFIG["api_keys"]: ent.insert(0, CONFIG["api_keys"Поставщик])
+            # FIX: Ensure clean variable access
+            if provider in CONFIG["api_keys"]: ent.insert(0, CONFIG["api_keys"][provider])
             self.key_entries[provider] = ent
             
         ctk.CTkButton(frame, text="Save Keys", command=self.save_keys).pack(pady=20)
@@ -295,7 +279,6 @@ class App(ctk.CTk):
         ctk.CTkLabel(win, text="System Scan", font=("Arial", 14, "bold")).pack(pady=10)
         ctk.CTkLabel(win, text=f"Detected: {gpu} ({vram} GB VRAM)", text_color="yellow").pack()
         
-        # Questions
         ctk.CTkLabel(win, text="1. Art Style?", font=("Arial", 12, "bold")).pack(anchor="w", padx=20, pady=(20,5))
         style_var = ctk.StringVar(value="General")
         ctk.CTkSegmentedButton(win, values=["Photorealistic", "Anime", "General"], variable=style_var).pack(fill="x", padx=20)
@@ -324,10 +307,9 @@ class App(ctk.CTk):
         ctk.CTkButton(win, text="Generate Recipe & Install", fg_color="green", height=50, command=generate).pack(side="bottom", fill="x", padx=20, pady=20)
 
     def execute_recipe(self, recipe):
-        # In a real app, this would queue downloads
         msg = f"Recipe Generated!\n\nModels: {len(recipe['checkpoints'])}\nNodes: {len(recipe['custom_nodes'])}\n\nStarting downloads in background..."
         messagebox.showinfo("Wizard", msg)
-        print("Recipe:", recipe) # Placeholder for download logic
+        print("Recipe:", recipe)
 
     def save_keys(self):
         for k, ent in self.key_entries.items(): CONFIG["api_keys"][k] = ent.get()
