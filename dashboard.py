@@ -12,7 +12,6 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import customtkinter as ctk
 
-# --- Config & Constants ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
@@ -37,15 +36,38 @@ def save_config(config):
 
 CONFIG = load_config()
 
-# --- Logic: Dev Tools & CLI Service ---
 class DevService:
+    # CLI_MAP: Name -> {install_cmd, type, check_cmd}
     CLI_MAP = {
-        "Gemini CLI": {"cmd": ["pip", "install", "-U", "google-generativeai"], "type": "pip"},
-        "Codex CLI (OpenAI)": {"cmd": ["pip", "install", "openai"], "type": "pip"},
-        "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm"},
-        "Grok CLI": {"cmd": ["pip", "install", "xai-sdk"], "type": "pip"},
-        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek"], "type": "pip"}
+        "Gemini CLI": {"cmd": ["pip", "install", "-U", "google-generativeai"], "type": "pip", "bin": "gemini"}, 
+        # Note: 'google-generativeai' is the lib, but usually user scripts it. 
+        # For detection, we check if the package is installed via pip list, or if a binary exists.
+        # Since these are often libs, we'll check pip freeze for pip packages.
+        
+        "Codex CLI (OpenAI)": {"cmd": ["pip", "install", "openai"], "type": "pip", "package": "openai"},
+        "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "bin": "claude"},
+        "Grok CLI": {"cmd": ["pip", "install", "xai-sdk"], "type": "pip", "package": "xai-sdk"},
+        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek"], "type": "pip", "package": "deepseek"}
     }
+
+    @staticmethod
+    def is_installed(tool_name):
+        tool = DevService.CLI_MAP.get(tool_name)
+        if not tool: return False
+        
+        # Strategy 1: Check binary in PATH (npm global / pip scripts)
+        if "bin" in tool:
+            if shutil.which(tool["bin"]): return True
+            
+        # Strategy 2: Check Pip Package
+        if tool["type"] == "pip" and "package" in tool:
+            try:
+                # Fast check using pip show
+                subprocess.check_call([sys.executable, "-m", "pip", "show", tool["package"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except: return False
+            
+        return False
 
     @staticmethod
     def is_node_installed(): return shutil.which("node") is not None
@@ -71,7 +93,6 @@ class DevService:
         
         return cmd
 
-# --- Logic: Comfy Service & Wizard ---
 class ComfyService:
     @staticmethod
     def detect_hardware():
@@ -127,7 +148,6 @@ class ComfyService:
 
         return recipe
 
-# --- UI Application ---
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -136,7 +156,6 @@ class App(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Sidebar
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         ctk.CTkLabel(self.sidebar, text="AI Universal\nSuite", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(30, 20))
@@ -148,7 +167,6 @@ class App(ctk.CTk):
         
         ctk.CTkButton(self.sidebar, text="Exit", fg_color="transparent", border_width=1, command=self.destroy).pack(side="bottom", pady=20, padx=20, fill="x")
 
-        # Content
         self.content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.content.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
 
@@ -169,17 +187,14 @@ class App(ctk.CTk):
         for f in self.frames.values(): f.pack_forget()
         self.frames[name].pack(fill="both", expand=True)
 
-    # --- Frames ---
     def create_overview(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         ctk.CTkLabel(frame, text="System Status", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
-        
         gpu, vram = ComfyService.detect_hardware()
         info = ctk.CTkFrame(frame)
         info.pack(fill="x", pady=10)
         ctk.CTkLabel(info, text=f"OS: {platform.system()}").pack(side="left", padx=20, pady=15)
         ctk.CTkLabel(info, text=f"GPU: {gpu} ({vram}GB)").pack(side="left", padx=20, pady=15)
-        
         return frame
 
     def create_devtools(self):
@@ -200,9 +215,21 @@ class App(ctk.CTk):
         
         self.cli_vars = {}
         for tool in DevService.CLI_MAP.keys():
-            var = ctk.BooleanVar()
-            ctk.CTkCheckBox(cli_frame, text=tool, variable=var).pack(anchor="w", padx=20, pady=5)
+            is_inst = DevService.is_installed(tool)
+            
+            row = ctk.CTkFrame(cli_frame, fg_color="transparent")
+            row.pack(fill="x", pady=2, padx=20)
+            
+            var = ctk.BooleanVar(value=is_inst)
+            chk = ctk.CTkCheckBox(row, text=tool, variable=var)
+            chk.pack(side="left")
             self.cli_vars[tool] = var
+            
+            if is_inst:
+                ctk.CTkLabel(row, text="✅ Installed", text_color="green", width=100).pack(side="left", padx=10)
+                chk.configure(state="disabled") # Prevent re-installing accidentally? Optional.
+            else:
+                ctk.CTkLabel(row, text="Not Installed", text_color="gray", width=100).pack(side="left", padx=10)
             
         opt_frame = ctk.CTkFrame(cli_frame, fg_color="transparent"); opt_frame.pack(fill="x", padx=10, pady=10)
         self.scope_var = ctk.StringVar(value="user")
@@ -216,32 +243,25 @@ class App(ctk.CTk):
     def create_comfyui(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         ctk.CTkLabel(frame, text="ComfyUI Studio", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
-        
-        wiz_frame = ctk.CTkFrame(frame)
-        wiz_frame.pack(fill="x", pady=20)
+        wiz_frame = ctk.CTkFrame(frame); wiz_frame.pack(fill="x", pady=20)
         ctk.CTkLabel(wiz_frame, text="Setup Wizard", font=("Arial", 16, "bold")).pack(pady=10)
         ctk.CTkLabel(wiz_frame, text="Answer a few questions to generate a custom installation recipe.").pack(pady=5)
         ctk.CTkButton(wiz_frame, text="✨ Start Wizard", height=50, fg_color="#6A0dad", command=self.open_wizard).pack(pady=20, fill="x", padx=40)
-        
         return frame
 
     def create_settings(self):
         frame = ctk.CTkFrame(self.content, fg_color="transparent")
         ctk.CTkLabel(frame, text="Settings & Keys", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
-        
         self.key_entries = {}
         for provider in ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROK_API_KEY", "DEEPSEEK_API_KEY"]:
             row = ctk.CTkFrame(frame); row.pack(fill="x", pady=5)
             ctk.CTkLabel(row, text=provider, width=150, anchor="w").pack(side="left", padx=10)
             ent = ctk.CTkEntry(row, show="*"); ent.pack(side="left", fill="x", expand=True, padx=10)
-            # FIX: Ensure clean variable access
-            if provider in CONFIG["api_keys"]: ent.insert(0, CONFIG["api_keys"][provider])
+            if provider in CONFIG["api_keys"]: ent.insert(0, CONFIG["api_keys"Поставщик])
             self.key_entries[provider] = ent
-            
         ctk.CTkButton(frame, text="Save Keys", command=self.save_keys).pack(pady=20)
         return frame
 
-    # --- Actions ---
     def install_node(self):
         cmd = DevService.install_node_cmd()
         subprocess.Popen(cmd)
@@ -249,8 +269,10 @@ class App(ctk.CTk):
 
     def install_clis(self):
         scope = self.scope_var.get()
-        targets = [t for t, v in self.cli_vars.items() if v.get()]
-        if not targets: return
+        targets = [t for t, v in self.cli_vars.items() if v.get() and not DevService.is_installed(t)]
+        if not targets:
+            messagebox.showinfo("Info", "No new tools selected.")
+            return
         
         win = ctk.CTkToplevel(self)
         win.title("Installing...")
@@ -267,7 +289,6 @@ class App(ctk.CTk):
                     log.insert("end", "Done.\n")
                 except Exception as e: log.insert("end", f"Error: {e}\n")
             log.insert("end", "All tasks finished.")
-        
         threading.Thread(target=run, daemon=True).start()
 
     def open_wizard(self):
@@ -294,16 +315,10 @@ class App(ctk.CTk):
         ctk.CTkCheckBox(win, text="Need Image Editing? (Inpainting/ControlNet)", variable=editing_var).pack(anchor="w", padx=20, pady=5)
         
         def generate():
-            answers = {
-                "style": style_var.get(),
-                "media": media_var.get(),
-                "consistency": consistency_var.get(),
-                "editing": editing_var.get()
-            }
+            answers = {"style": style_var.get(), "media": media_var.get(), "consistency": consistency_var.get(), "editing": editing_var.get()}
             recipe = ComfyService.generate_recipe(answers, vram)
             self.execute_recipe(recipe)
             win.destroy()
-            
         ctk.CTkButton(win, text="Generate Recipe & Install", fg_color="green", height=50, command=generate).pack(side="bottom", fill="x", padx=20, pady=20)
 
     def execute_recipe(self, recipe):
