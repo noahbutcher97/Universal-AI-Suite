@@ -3,14 +3,14 @@
 :; 
 :; # --- UNIX / MAC / LINUX START ---
 :; echo "Detected Unix-like Environment."
-:; chmod +x ./start_dashboard.sh
-:; ./start_dashboard.sh
+:; chmod +x ./bin/boot_unix.sh
+:; ./bin/boot_unix.sh
 :; exit $?
 :; # --- UNIX END ---
 
 @ECHO OFF
 :: --- WINDOWS START ---
 ECHO Detected Windows Environment.
-CALL start_dashboard.bat
+CALL bin\boot_windows.bat
 EXIT /B %ERRORLEVEL%
 :: --- WINDOWS END ---
