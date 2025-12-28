@@ -2,13 +2,10 @@ import os
 import hashlib
 from src.services.system_service import SystemService
 from src.utils.logger import log
+from src.config.manager import config_manager
 
 class ComfyService:
-    # Known hashes for popular base models (partial for verification)
-    MODEL_HASHES = {
-        "flux1-schnell.safetensors": "a9e1e277b9b1", # Partial example
-        "v1-5-pruned-emaonly.safetensors": "cc6cb2710341"
-    }
+    _RES = config_manager.get_resources().get("comfy", {})
 
     @staticmethod
     def verify_file(filepath, expected_hash=None):
@@ -40,88 +37,69 @@ class ComfyService:
         """
         gpu_name, vram = SystemService.get_gpu_info()
         manifest = []
+        res = ComfyService._RES
         
         # 1. Base Installation
         manifest.append({
             "type": "clone", 
-            "url": "https://github.com/comfyanonymous/ComfyUI.git", 
+            "url": res["core"]["url"], 
             "dest": install_root, 
             "name": "ComfyUI Core"
         })
         manifest.append({
             "type": "clone", 
-            "url": "https://github.com/ltdrdata/ComfyUI-Manager.git", 
+            "url": res["core"]["manager"], 
             "dest": os.path.join(install_root, "custom_nodes", "ComfyUI-Manager"), 
             "name": "ComfyUI Manager"
         })
 
         # 2. Model Tier Selection logic
-        # Improved logic: Consider 12GB cards as high tier for SDXL/Flux usage if optimized
         model_tier = "sd15"
-        if vram >= 12: 
-            model_tier = "flux" # High end
-        elif vram >= 8: 
-            model_tier = "sdxl" # Mid range
+        if vram >= 12: model_tier = "flux"
+        elif vram >= 8: model_tier = "sdxl"
         
         ckpt_dir = os.path.join(install_root, "models", "checkpoints")
         
-        # Style Mappings
-        # In a future phase, these URLs should come from an external JSON
-        if answers.get("style") == "Photorealistic":
-            if model_tier == "flux": 
-                manifest.append({"type": "download", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "dest": ckpt_dir, "name": "Flux1-Schnell"})
-            elif model_tier == "sdxl": 
-                manifest.append({"type": "download", "url": "https://civitai.com/api/download/models/240840", "dest": ckpt_dir, "name": "Juggernaut XL v9"})
-            else: 
-                manifest.append({"type": "download", "url": "https://civitai.com/api/download/models/130072", "dest": ckpt_dir, "name": "Realistic Vision 6"})
-                
-        elif answers.get("style") == "Anime":
-            if model_tier in ["sdxl", "flux"]:
-                manifest.append({"type": "download", "url": "https://civitai.com/api/download/models/290640", "dest": ckpt_dir, "name": "Pony Diffusion V6 XL"})
-            else:
-                manifest.append({"type": "download", "url": "https://civitai.com/api/download/models/100675", "dest": ckpt_dir, "name": "Anything V5"})
+        style = answers.get("style", "General").lower()
+        model_data = res["models"].get(style, res["models"]["general"]).get(model_tier)
         
-        else: # General / Default
-            if model_tier == "flux": 
-                manifest.append({"type": "download", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "dest": ckpt_dir, "name": "Flux1-Schnell"})
-            elif model_tier == "sdxl": 
-                manifest.append({"type": "download", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "dest": ckpt_dir, "name": "SDXL Base 1.0"})
-            else: 
-                manifest.append({"type": "download", "url": "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors", "dest": ckpt_dir, "name": "SD 1.5 Pruned"})
+        manifest.append({
+            "type": "download", 
+            "url": model_data["url"], 
+            "dest": ckpt_dir, 
+            "name": model_data["name"]
+        })
 
         # 3. Feature Selection
         if answers.get("media") in ["Video", "Mixed"]:
+            feat = res["features"]["animatediff"]
             manifest.append({
-                "type": "clone", 
-                "url": "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git", 
+                "type": "clone", "url": feat["node"], 
                 "dest": os.path.join(install_root, "custom_nodes", "ComfyUI-AnimateDiff-Evolved"), 
                 "name": "AnimateDiff Node"
             })
             manifest.append({
-                "type": "download", 
-                "url": "https://huggingface.co/guoyww/animatediff/resolve/main/mm_sd_v15_v2.ckpt", 
+                "type": "download", "url": feat["model"], 
                 "dest": os.path.join(install_root, "custom_nodes", "ComfyUI-AnimateDiff-Evolved", "models"), 
                 "name": "AnimateDiff V2 Motion Model"
             })
 
         if answers.get("consistency"):
             manifest.append({
-                "type": "clone", 
-                "url": "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git", 
+                "type": "clone", "url": res["features"]["ipadapter"], 
                 "dest": os.path.join(install_root, "custom_nodes", "ComfyUI_IPAdapter_plus"), 
                 "name": "IPAdapter Plus"
             })
             
         if answers.get("editing"):
+            feat = res["features"]["controlnet"]
             manifest.append({
-                "type": "clone", 
-                "url": "https://github.com/Fannovel16/comfyui_controlnet_aux.git", 
+                "type": "clone", "url": feat["node"], 
                 "dest": os.path.join(install_root, "custom_nodes", "comfyui_controlnet_aux"), 
                 "name": "ControlNet Preprocessors"
             })
             manifest.append({
-                "type": "download", 
-                "url": "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth", 
+                "type": "download", "url": feat["model"], 
                 "dest": os.path.join(install_root, "models", "controlnet"), 
                 "name": "ControlNet Canny (SD1.5)"
             })

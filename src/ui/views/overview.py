@@ -3,8 +3,9 @@ import platform
 from src.services.system_service import SystemService
 
 class OverviewFrame(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
+        self.app = app
         
         title = ctk.CTkLabel(self, text="System Status", font=ctk.CTkFont(size=24, weight="bold"))
         title.pack(anchor="w", pady=10)

@@ -3,8 +3,9 @@ from tkinter import messagebox
 from src.config.manager import config_manager
 
 class SettingsFrame(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
+        self.app = app
         
         ctk.CTkLabel(self, text="Settings & Keys", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
         

@@ -1,0 +1,43 @@
+{
+    "clis": {
+        "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "package": "@anthropic-ai/claude-code", "bin": "claude"},
+        "Gemini CLI": {"cmd": ["npm", "install", "@google/gemini-cli"], "type": "npm", "package": "@google/gemini-cli", "bin": "gemini"},
+        "Codex CLI": {"cmd": ["npm", "install", "@openai/codex"], "type": "npm", "package": "@openai/codex", "bin": "codex"},
+        "Grok CLI": {"cmd": ["npm", "install", "@vibe-kit/grok-cli"], "type": "npm", "package": "@vibe-kit/grok-cli", "bin": "grok"},
+        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek-cli"], "type": "pip", "package": "deepseek-cli", "bin": "deepseek-cli"}
+    },
+    "comfy": {
+        "core": {
+            "url": "https://github.com/comfyanonymous/ComfyUI.git",
+            "manager": "https://github.com/ltdrdata/ComfyUI-Manager.git"
+        },
+        "models": {
+            "photorealistic": {
+                "flux": {"name": "Flux1-Schnell", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "hash": "a9e1e277"},
+                "sdxl": {"name": "Juggernaut XL v9", "url": "https://civitai.com/api/download/models/240840", "hash": "cc6cb271"},
+                "sd15": {"name": "Realistic Vision 6", "url": "https://civitai.com/api/download/models/130072", "hash": ""}
+            },
+            "anime": {
+                "flux": {"name": "Pony Diffusion V6 XL", "url": "https://civitai.com/api/download/models/290640", "hash": ""},
+                "sdxl": {"name": "Pony Diffusion V6 XL", "url": "https://civitai.com/api/download/models/290640", "hash": ""},
+                "sd15": {"name": "Anything V5", "url": "https://civitai.com/api/download/models/100675", "hash": ""}
+            },
+            "general": {
+                "flux": {"name": "Flux1-Schnell", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "hash": ""},
+                "sdxl": {"name": "SDXL Base 1.0", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "hash": ""},
+                "sd15": {"name": "SD 1.5 Pruned", "url": "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors", "hash": ""}
+            }
+        },
+        "features": {
+            "animatediff": {
+                "node": "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git",
+                "model": "https://huggingface.co/guoyww/animatediff/resolve/main/mm_sd_v15_v2.ckpt"
+            },
+            "ipadapter": "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git",
+            "controlnet": {
+                "node": "https://github.com/Fannovel16/comfyui_controlnet_aux.git",
+                "model": "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth"
+            }
+        }
+    }
+}

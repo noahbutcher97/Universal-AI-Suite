@@ -7,8 +7,9 @@ from src.services.system_service import SystemService
 from src.services.dev_service import DevService
 
 class DevToolsFrame(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
+        self.app = app
         
         ctk.CTkLabel(self, text="Developer Tools & CLIs", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
         
@@ -92,16 +93,24 @@ class DevToolsFrame(ctk.CTkFrame):
             messagebox.showinfo("Info", "No new tools selected.")
             return
 
-        # Simple thread for now
         def run():
             for t in targets:
+                task_id = f"cli_{t.replace(' ', '_')}"
+                self.app.add_activity(task_id, f"Installing {t}")
+                self.app.update_activity(task_id, 0.3) # Partial progress
+                
                 cmd = DevService.get_install_cmd(t, scope)
                 if cmd:
-                    subprocess.call(cmd, shell=(platform.system()=="Windows"))
+                    try:
+                        subprocess.call(cmd, shell=(platform.system()=="Windows"))
+                        self.app.update_activity(task_id, 1.0)
+                    except Exception as e:
+                        print(f"Install error: {e}")
+                
+                self.app.complete_activity(task_id)
             
-            # Post-install refresh (needs to be thread safe in UI)
-            # For now, just a message
-            print("Install complete. Please restart app to refresh status.") # Placeholder
+            # Reset cache so UI can show 'Installed' status
+            DevService.clear_cache()
             
         threading.Thread(target=run, daemon=True).start()
-        messagebox.showinfo("Started", "Installation started in background.")
+        messagebox.showinfo("Started", "CLI installations started in the Activity Center.")

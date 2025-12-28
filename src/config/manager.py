@@ -113,5 +113,16 @@ class ConfigManager:
             log.info("Config repaired with default values.")
             self.save_config()
 
+    def get_resources(self):
+        """Loads resource maps (CLI, Models)."""
+        res_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources.json")
+        if os.path.exists(res_file):
+            try:
+                with open(res_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                log.error(f"Failed to load resources: {e}")
+        return {}
+
 config_manager = ConfigManager()
 config_manager.validate_config()

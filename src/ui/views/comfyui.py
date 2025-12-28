@@ -10,8 +10,9 @@ from src.services.comfy_service import ComfyService
 from src.services.system_service import SystemService
 
 class ComfyUIFrame(ctk.CTkFrame):
-    def __init__(self, master):
+    def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
+        self.app = app
         
         ctk.CTkLabel(self, text="ComfyUI Studio", font=ctk.CTkFont(size=24, weight="bold")).pack(anchor="w", pady=10)
         
@@ -98,47 +99,44 @@ class ComfyUIFrame(ctk.CTkFrame):
         ctk.CTkButton(parent, text="Confirm & Install", fg_color="green", height=50, command=execute).pack(fill="x", padx=20, pady=20)
 
     def run_install_process(self, manifest):
-        win = ctk.CTkToplevel(self)
-        win.title("Installing...")
-        win.geometry("600x400")
-        log_box = ctk.CTkTextbox(win)
-        log_box.pack(fill="both", expand=True)
-        
         def process():
-            log_box.insert("end", "Checking Python Environment...\n")
-            # Logic to verify/create venv
-            # ... (Simplified for this phase, assuming running in app context)
-            
             for item in manifest:
-                log_box.insert("end", f"Processing: {item['name']}...\n")
-                log_box.see("end")
+                task_id = f"install_{item['name'].replace(' ', '_')}"
+                self.app.add_activity(task_id, f"Processing: {item['name']}")
                 
                 if not os.path.exists(item['dest']): 
                     os.makedirs(item['dest'], exist_ok=True)
                 
                 if item['type'] == "clone":
                     if not os.path.exists(os.path.join(item['dest'], ".git")):
+                        # For git clone, we can't easily get % progress without complex parsing
+                        # So we'll just show indeterminate or mark as started
+                        self.app.update_activity(task_id, 0.5) 
                         subprocess.call(["git", "clone", item['url'], item['dest']], stdout=subprocess.DEVNULL)
-                    else:
-                        log_box.insert("end", "  Already exists, skipping.\n")
-                        
+                    
                 elif item['type'] == "download":
                     fname = item['url'].split('/')[-1]
                     dest_file = os.path.join(item['dest'], fname)
                     if not os.path.exists(dest_file):
-                        log_box.insert("end", f"  Downloading {fname}...\n")
                         try:
-                            # Use requests with stream for future progress bar hooks
                             response = requests.get(item['url'], stream=True)
+                            total_size = int(response.headers.get('content-length', 0))
+                            downloaded = 0
+                            
                             with open(dest_file, 'wb') as f:
-                                for data in response.iter_content(4096):
+                                for data in response.iter_content(chunk_size=1024*1024): # 1MB chunks
+                                    downloaded += len(data)
                                     f.write(data)
-                            log_box.insert("end", "  Download complete.\n")
+                                    if total_size > 0:
+                                        progress = downloaded / total_size
+                                        self.app.update_activity(task_id, progress)
                         except Exception as e:
-                            log_box.insert("end", f"  Download FAILED: {e}\n")
-                    else:
-                        log_box.insert("end", "  File exists.\n")
+                            print(f"Download FAILED: {e}")
+                
+                self.app.update_activity(task_id, 1.0)
+                self.app.complete_activity(task_id)
             
-            log_box.insert("end", "\n✅ All operations complete.\n")
+            messagebox.showinfo("Success", "Installation complete!")
 
         threading.Thread(target=process, daemon=True).start()
+        messagebox.showinfo("Started", "Installation started in the Activity Center.")

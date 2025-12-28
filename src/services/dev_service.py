@@ -5,15 +5,11 @@ import sys
 from functools import lru_cache
 from src.services.system_service import SystemService
 from src.utils.logger import log
+from src.config.manager import config_manager
 
 class DevService:
-    CLI_MAP = {
-        "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "package": "@anthropic-ai/claude-code", "bin": "claude"},
-        "Gemini CLI": {"cmd": ["npm", "install", "@google/gemini-cli"], "type": "npm", "package": "@google/gemini-cli", "bin": "gemini"},
-        "Codex CLI": {"cmd": ["npm", "install", "@openai/codex"], "type": "npm", "package": "@openai/codex", "bin": "codex"},
-        "Grok CLI": {"cmd": ["npm", "install", "@vibe-kit/grok-cli"], "type": "npm", "package": "@vibe-kit/grok-cli", "bin": "grok"},
-        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek-cli"], "type": "pip", "package": "deepseek-cli", "bin": "deepseek-cli"}
-    }
+    _RESOURCES = config_manager.get_resources().get("clis", {})
+    CLI_MAP = _RESOURCES
 
     @staticmethod
     @lru_cache(maxsize=32)
