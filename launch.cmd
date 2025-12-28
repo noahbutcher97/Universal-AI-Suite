@@ -3,14 +3,14 @@
 :; 
 :; # --- UNIX / MAC / LINUX START ---
 :; echo "Detected Unix-like Environment."
-:; chmod +x ./bin/boot_unix.sh
-:; ./bin/boot_unix.sh
+:; chmod +x ./Run_Unix.sh
+:; ./Run_Unix.sh
 :; exit $?
 :; # --- UNIX END ---
 
 @ECHO OFF
 :: --- WINDOWS START ---
 ECHO Detected Windows Environment.
-CALL bin\boot_windows.bat
+CALL Run_Windows.bat
 EXIT /B %ERRORLEVEL%
 :: --- WINDOWS END ---

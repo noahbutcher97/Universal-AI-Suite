@@ -3,8 +3,9 @@ import os
 import traceback
 from tkinter import messagebox
 
-# Add src to path if needed (for direct execution)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add project root to path (one level up from this file)
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(root_dir)
 
 from src.utils.logger import log
 from src.config.manager import config_manager
