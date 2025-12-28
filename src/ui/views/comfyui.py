@@ -31,6 +31,19 @@ class ComfyUIFrame(ctk.CTkFrame):
         ctk.CTkLabel(wiz, text="Installation Wizard", font=("Arial", 16, "bold")).pack(pady=10)
         ctk.CTkButton(wiz, text="✨ Build Installation Manifest", height=50, fg_color="#6A0dad", command=self.open_wizard).pack(pady=20, fill="x", padx=40)
 
+        # #TODO: Add ComfyUI lifecycle management features.
+        # The current UI only supports the initial installation. Key features
+        # for a robust tool would include updating and uninstalling.
+        #
+        # Suggested implementation:
+        # 1. Add "Update ComfyUI" and "Uninstall ComfyUI" buttons.
+        # 2. Update: Should run `git pull` in the core and manager directories,
+        #    and potentially update other custom nodes. This should be a
+        #    service-layer function.
+        # 3. Uninstall: Should provide a confirmation dialog and then remove
+        #    the entire ComfyUI directory. This should also be a service-layer
+        #    function.
+
     def change_comfy_path(self):
         p = filedialog.askdirectory(initialdir=config_manager.get("comfy_path"))
         if p:
@@ -98,7 +111,19 @@ class ComfyUIFrame(ctk.CTkFrame):
             
         ctk.CTkButton(parent, text="Confirm & Install", fg_color="green", height=50, command=execute).pack(fill="x", padx=20, pady=20)
 
+        # #TODO: Add a "Cancel" or "Back" button to the manifest review.
+        # The user is currently locked into the installation once they reach
+        # this screen. A "Back" button would improve usability.
+
     def run_install_process(self, manifest):
+        # #TODO: Implement a cancellation mechanism for the installation process.
+        # Long-running downloads or clones cannot be cancelled by the user.
+        #
+        # Suggested implementation:
+        # 1. Use a threading.Event object that can be checked in the loop.
+        # 2. Add a "Cancel" button to the activity center for in-progress tasks.
+        # 3. When the button is clicked, set the event. The loop in `process()`
+        #    should check `if event.is_set(): break` and perform cleanup.
         def process():
             for item in manifest:
                 task_id = f"install_{item['name'].replace(' ', '_')}"
@@ -109,17 +134,22 @@ class ComfyUIFrame(ctk.CTkFrame):
                 
                 if item['type'] == "clone":
                     if not os.path.exists(os.path.join(item['dest'], ".git")):
-                        # For git clone, we can't easily get % progress without complex parsing
-                        # So we'll just show indeterminate or mark as started
                         self.app.update_activity(task_id, 0.5) 
+                        # #TODO: Add robust error handling for subprocess calls.
+                        # (This is the same issue as in devtools.py)
                         subprocess.call(["git", "clone", item['url'], item['dest']], stdout=subprocess.DEVNULL)
                     
                 elif item['type'] == "download":
                     fname = item['url'].split('/')[-1]
                     dest_file = os.path.join(item['dest'], fname)
-                    if not os.path.exists(dest_file):
+                    if not ComfyService.verify_file(dest_file, item.get("hash")):
                         try:
-                            response = requests.get(item['url'], stream=True)
+                            # #TODO: Handle download errors more gracefully.
+                            # A failed download should be clearly marked as failed in
+                            # the UI, and the user should be notified. The current
+                            # implementation just prints to console.
+                            response = requests.get(item['url'], stream=True, timeout=10)
+                            response.raise_for_status()
                             total_size = int(response.headers.get('content-length', 0))
                             downloaded = 0
                             
@@ -132,6 +162,7 @@ class ComfyUIFrame(ctk.CTkFrame):
                                         self.app.update_activity(task_id, progress)
                         except Exception as e:
                             print(f"Download FAILED: {e}")
+                            # Mark as failed in UI here
                 
                 self.app.update_activity(task_id, 1.0)
                 self.app.complete_activity(task_id)

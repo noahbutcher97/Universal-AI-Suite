@@ -65,24 +65,22 @@ def setup_venv(paths):
     return paths["python"]
 
 def install_deps(pip_path):
-    """Installs requirements."""
-    print("[INIT] Checking dependencies...")
+    """Installs requirements from requirements.txt."""
+    print("[INIT] Installing dependencies...")
     req_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "requirements.txt")
     
-    # Core deps if file missing
-    deps = ["customtkinter", "psutil", "requests", "keyring"]
-    
-    cmd = [pip_path, "install"]
-    
-    if os.path.exists(req_file):
-        cmd.extend(["-r", req_file])
-    else:
-        cmd.extend(deps)
+    if not os.path.exists(req_file):
+        print(f"FATAL: requirements.txt not found at {req_file}")
+        sys.exit(1)
+
+    cmd = [pip_path, "install", "-r", req_file, "--quiet"]
         
     try:
-        subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        print("Warning: Failed to install some dependencies. App may crash.")
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        print(f"FATAL: Failed to install dependencies from {req_file}.")
+        print(f"Pip exited with status {e.returncode}")
+        sys.exit(1)
 
 def launch_app(python_path, root_dir):
     """Launches the main app."""
@@ -101,6 +99,25 @@ def launch_app(python_path, root_dir):
         print("\nExiting...")
 
 def main():
+    # #TODO: Add a pre-flight check for essential system dependencies.
+    # The application relies on 'git' for cloning repositories, but there is
+    # no check to ensure it's installed and available in the system's PATH.
+    # This can lead to silent failures or cryptic errors during the ComfyUI
+    # installation process.
+    #
+    # Suggested implementation:
+    # 1. Create a function `check_system_dependencies()`.
+    # 2. Inside this function, use `shutil.which('git')` to check for git.
+    # 3. If git is not found, display a user-friendly error message in the
+    #    console and, if possible, a graphical message box, then exit.
+    # 4. Call this function at the start of `main()`.
+    #
+    # Example:
+    #   if not shutil.which("git"):
+    #       print("FATAL: Git is not installed or not in your PATH.")
+    #       # Show messagebox here if tkinter is available
+    #       sys.exit(1)
+
     check_python_version()
     paths = get_env_paths()
     
@@ -116,6 +133,17 @@ def main():
     else:
         pip_path = paths["pip"]
         
+    # #TODO: Enhance user feedback during dependency installation.
+    # The current `install_deps` function uses `--quiet` which suppresses
+    # most of the output from pip. While this keeps the console clean, it
+    # provides no feedback to the user, especially on the first run when
+    # dependencies are being downloaded and installed, which can take time.
+    #
+    # Suggested implementation:
+    # 1. Remove the `--quiet` flag from the pip command.
+    # 2. Consider adding a simple visual indicator like printing dots (...)
+    #    in a loop in a separate thread while the subprocess runs to show
+    #    that the application has not frozen.
     install_deps(pip_path)
     launch_app(venv_python, paths["root"])
 
