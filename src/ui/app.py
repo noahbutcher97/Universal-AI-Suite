@@ -14,7 +14,7 @@ class App(ctk.CTk):
         ctk.set_appearance_mode(config_manager.get("theme", "Dark"))
         ctk.set_default_color_theme("blue")
         
-        self.title("AI Universal Suite")
+        self.title("Universal AI Suite")
         self.geometry("1200x800")
         
         # Grid Layout

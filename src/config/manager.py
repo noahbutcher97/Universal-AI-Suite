@@ -5,8 +5,8 @@ import keyring
 from src.utils.logger import log
 
 class ConfigManager:
-    APP_NAME = "AIUniversalSuite"
-    CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".ai_universal_suite")
+    APP_NAME = "UniversalAISuite"
+    CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".universal_ai_suite")
     CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
     
     DEFAULT_CONFIG = {

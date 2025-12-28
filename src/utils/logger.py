@@ -3,7 +3,7 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(name="AIUniversalSuite", log_file="app.log", level=logging.INFO):
+def setup_logger(name="UniversalAISuite", log_file="app.log", level=logging.INFO):
     """
     Sets up a thread-safe logger with console and file handlers.
     """
@@ -24,7 +24,7 @@ def setup_logger(name="AIUniversalSuite", log_file="app.log", level=logging.INFO
 
     # File Handler (Rotating)
     try:
-        log_dir = os.path.join(os.path.expanduser("~"), ".ai_universal_suite", "logs")
+        log_dir = os.path.join(os.path.expanduser("~"), ".universal_ai_suite", "logs")
         os.makedirs(log_dir, exist_ok=True)
         file_handler = RotatingFileHandler(
             os.path.join(log_dir, log_file), maxBytes=5*1024*1024, backupCount=3

@@ -5,7 +5,7 @@ class Sidebar(ctk.CTkFrame):
         super().__init__(master, width=220, corner_radius=0)
         self.navigate_callback = navigate_callback
         
-        self.logo = ctk.CTkLabel(self, text="AI Universal\nSuite", font=ctk.CTkFont(size=22, weight="bold"))
+        self.logo = ctk.CTkLabel(self, text="Universal\nAI Suite", font=ctk.CTkFont(size=22, weight="bold"))
         self.logo.pack(pady=(30, 20))
         
         self.create_nav_btn("Dashboard", "overview")
