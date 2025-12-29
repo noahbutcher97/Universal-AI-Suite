@@ -8,6 +8,11 @@ from src.ui.views.comfyui import ComfyUIFrame
 from src.ui.views.settings import SettingsFrame
 
 class App(ctk.CTk):
+    """
+    The main application class for the AI Universal Suite.
+    This class sets up the main window, sidebar, content area, and activity center.
+    It also handles navigation between different views.
+    """
     def __init__(self):
         super().__init__()
         
@@ -21,8 +26,7 @@ class App(ctk.CTk):
         # Grid Layout
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        # Row 1 will be for the Activity Center
-        self.grid_rowconfigure(1, weight=0)
+        self.grid_rowconfigure(1, weight=0) # For Activity Center
         
         # Sidebar
         self.sidebar = Sidebar(self, self.navigate)
@@ -37,17 +41,19 @@ class App(ctk.CTk):
         self.activity_center.grid(row=1, column=1, sticky="ew")
         
         # Initialize Frames
-        self.frames = {}
-        self.frames["overview"] = OverviewFrame(self.content_area, self)
-        self.frames["devtools"] = DevToolsFrame(self.content_area, self)
-        self.frames["comfyui"] = ComfyUIFrame(self.content_area, self)
-        self.frames["settings"] = SettingsFrame(self.content_area, self)
+        self.frames = {
+            "overview": OverviewFrame(self.content_area, self),
+            "devtools": DevToolsFrame(self.content_area, self),
+            "comfyui": ComfyUIFrame(self.content_area, self),
+            "settings": SettingsFrame(self.content_area, self)
+        }
         
         # Show Start Frame
         self.current_frame = None
         self.navigate("overview")
 
     def navigate(self, name):
+        """Switches the view in the main content area."""
         if self.current_frame:
             self.current_frame.pack_forget()
         
@@ -56,14 +62,13 @@ class App(ctk.CTk):
             self.current_frame.pack(fill="both", expand=True)
 
     def add_activity(self, task_id, name):
-        """Thread-safe way to add activity"""
+        """Thread-safely adds a new task to the activity center."""
         self.after(0, lambda: self.activity_center.add_task(task_id, name))
 
     def update_activity(self, task_id, progress):
-        """Thread-safe way to update activity progress (0.0 to 1.0)"""
+        """Thread-safely updates the progress of a task."""
         self.after(0, lambda: self.activity_center.update_task(task_id, progress))
 
     def complete_activity(self, task_id):
-        """Thread-safe way to remove/complete activity"""
-        # Small delay so user sees 100%
+        """Thread-safely marks a task as complete and removes it after a delay."""
         self.after(1000, lambda: self.activity_center.remove_task(task_id))

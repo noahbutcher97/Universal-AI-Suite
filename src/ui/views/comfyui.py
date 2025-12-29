@@ -8,6 +8,7 @@ import sys
 from src.config.manager import config_manager
 from src.services.comfy_service import ComfyService
 from src.services.system_service import SystemService
+from src.ui.components.model_manager import ModelManagerFrame
 
 class ComfyUIFrame(ctk.CTkFrame):
     def __init__(self, master, app):
@@ -25,17 +26,51 @@ class ComfyUIFrame(ctk.CTkFrame):
         self.comfy_path_lbl.pack(side="left", padx=10)
         ctk.CTkButton(path_frame, text="Change", width=80, command=self.change_comfy_path).pack(side="right", padx=10)
         
-        # Wizard
-        wiz = ctk.CTkFrame(self)
+        # Dynamic content frame
+        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.content_frame.pack(fill="both", expand=True, pady=20)
+
+        self._render_content()
+
+    def _clear_content_frame(self):
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+
+    def _render_content(self):
+        self._clear_content_frame()
+        comfy_path = config_manager.get("comfy_path")
+
+        if ComfyService.is_comfyui_installed(comfy_path):
+            self._render_model_manager()
+        else:
+            self._render_installer()
+
+    def _render_installer(self):
+        wiz = ctk.CTkFrame(self.content_frame)
         wiz.pack(fill="x", pady=20)
         ctk.CTkLabel(wiz, text="Installation Wizard", font=("Arial", 16, "bold")).pack(pady=10)
+        ctk.CTkLabel(wiz, text="ComfyUI not found at the specified path.").pack()
         ctk.CTkButton(wiz, text="✨ Build Installation Manifest", height=50, fg_color="#6A0dad", command=self.open_wizard).pack(pady=20, fill="x", padx=40)
+
+    def _render_model_manager(self):
+        self.model_manager = ModelManagerFrame(self.content_frame, self.app)
+        self.model_manager.pack(fill="both", expand=True)
+
+        # #TODO: Add ComfyUI lifecycle management features.
+        # The current UI only supports the initial installation. Key features
+        # for a robust tool would include updating and uninstalling.
+        #
+        # Suggested implementation:
+        # 1. Add "Update ComfyUI" and "Uninstall ComfyUI" buttons here.
+        # 2. Update: Should run `git pull` in the core and manager directories.
+        # 3. Uninstall: Should remove the ComfyUI directory after confirmation.
 
     def change_comfy_path(self):
         p = filedialog.askdirectory(initialdir=config_manager.get("comfy_path"))
         if p:
             config_manager.set("comfy_path", p)
             self.comfy_path_lbl.configure(text=p)
+            self._render_content() # Refresh the view
 
     def open_wizard(self):
         win = ctk.CTkToplevel(self)
@@ -98,7 +133,19 @@ class ComfyUIFrame(ctk.CTkFrame):
             
         ctk.CTkButton(parent, text="Confirm & Install", fg_color="green", height=50, command=execute).pack(fill="x", padx=20, pady=20)
 
+        # #TODO: Add a "Cancel" or "Back" button to the manifest review.
+        # The user is currently locked into the installation once they reach
+        # this screen. A "Back" button would improve usability.
+
     def run_install_process(self, manifest):
+        # #TODO: Implement a cancellation mechanism for the installation process.
+        # Long-running downloads or clones cannot be cancelled by the user.
+        #
+        # Suggested implementation:
+        # 1. Use a threading.Event object that can be checked in the loop.
+        # 2. Add a "Cancel" button to the activity center for in-progress tasks.
+        # 3. When the button is clicked, set the event. The loop in `process()`
+        #    should check `if event.is_set(): break` and perform cleanup.
         def process():
             for item in manifest:
                 task_id = f"install_{item['name'].replace(' ', '_')}"
@@ -109,17 +156,22 @@ class ComfyUIFrame(ctk.CTkFrame):
                 
                 if item['type'] == "clone":
                     if not os.path.exists(os.path.join(item['dest'], ".git")):
-                        # For git clone, we can't easily get % progress without complex parsing
-                        # So we'll just show indeterminate or mark as started
                         self.app.update_activity(task_id, 0.5) 
+                        # #TODO: Add robust error handling for subprocess calls.
+                        # (This is the same issue as in devtools.py)
                         subprocess.call(["git", "clone", item['url'], item['dest']], stdout=subprocess.DEVNULL)
                     
                 elif item['type'] == "download":
                     fname = item['url'].split('/')[-1]
                     dest_file = os.path.join(item['dest'], fname)
-                    if not os.path.exists(dest_file):
+                    if not ComfyService.verify_file(dest_file, item.get("hash")):
                         try:
-                            response = requests.get(item['url'], stream=True)
+                            # #TODO: Handle download errors more gracefully.
+                            # A failed download should be clearly marked as failed in
+                            # the UI, and the user should be notified. The current
+                            # implementation just prints to console.
+                            response = requests.get(item['url'], stream=True, timeout=10)
+                            response.raise_for_status()
                             total_size = int(response.headers.get('content-length', 0))
                             downloaded = 0
                             
@@ -132,6 +184,7 @@ class ComfyUIFrame(ctk.CTkFrame):
                                         self.app.update_activity(task_id, progress)
                         except Exception as e:
                             print(f"Download FAILED: {e}")
+                            # Mark as failed in UI here
                 
                 self.app.update_activity(task_id, 1.0)
                 self.app.complete_activity(task_id)

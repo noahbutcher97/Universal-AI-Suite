@@ -11,6 +11,11 @@
             "url": "https://github.com/comfyanonymous/ComfyUI.git",
             "manager": "https://github.com/ltdrdata/ComfyUI-Manager.git"
         },
+        "model_tiers": {
+            "flux": { "min_vram": 12 },
+            "sdxl": { "min_vram": 8 },
+            "sd15": { "min_vram": 0 }
+        },
         "models": {
             "photorealistic": {
                 "flux": {"name": "Flux1-Schnell", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "hash": "a9e1e277"},

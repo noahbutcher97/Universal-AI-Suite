@@ -114,7 +114,35 @@ class ConfigManager:
             self.save_config()
 
     def get_resources(self):
-        """Loads resource maps (CLI, Models)."""
+        """
+        Loads and merges resource maps (CLI, Models) from default and user configs.
+        """
+        # #TODO: Implement a user-extendable resource configuration.
+        # The current implementation loads resources only from a static `resources.json`.
+        # A more powerful and flexible approach would be to merge a user-defined
+        # `resources.user.json` with the default one. This would allow users to
+        # add their own CLI tools, models, or ComfyUI custom nodes without
+        # modifying the application's core files.
+        #
+        # Suggested implementation:
+        # 1. Load the default `resources.json` as the base configuration.
+        # 2. Check for a `resources.user.json` in the `CONFIG_DIR`.
+        # 3. If it exists, load it and perform a deep merge over the base
+        #    configuration. A deep merge would allow users to override specific
+        #    entries or add new ones. For example, a user could add a new CLI
+        #    tool under the "clis" key.
+        # 4. The result of the merge should be returned.
+        #
+        # Example of a deep merge function:
+        #   def deep_merge(source, destination):
+        #       for key, value in source.items():
+        #           if isinstance(value, dict):
+        #               node = destination.setdefault(key, {})
+        #               deep_merge(value, node)
+        #           else:
+        #               destination[key] = value
+        #       return destination
+
         res_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources.json")
         if os.path.exists(res_file):
             try:
