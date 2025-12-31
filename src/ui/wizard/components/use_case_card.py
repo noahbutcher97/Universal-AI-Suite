@@ -2,7 +2,7 @@ import customtkinter as ctk
 
 class UseCaseCard(ctk.CTkFrame):
     def __init__(self, master, use_case_id, title, description, icon, command=None, selected=False):
-        super().__init__(master, corner_radius=10, border_width=2 if selected else 0, border_color="#1f6aa5" if selected else "transparent")
+        super().__init__(master, corner_radius=10, border_width=2 if selected else 0, border_color="#1f6aa5" if selected else None)
         
         self.use_case_id = use_case_id
         self.command = command
@@ -35,4 +35,4 @@ class UseCaseCard(ctk.CTkFrame):
 
     def set_selected(self, selected):
         self.selected = selected
-        self.configure(border_width=2 if selected else 0, border_color="#1f6aa5" if selected else "transparent")
+        self.configure(border_width=2 if selected else 0, border_color="#1f6aa5" if selected else None)

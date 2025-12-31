@@ -168,6 +168,31 @@ class CLICandidate(Candidate):
 # --- Result Schema ---
 
 @dataclass
+class ModuleRecommendation:
+    """Output of RecommendationService for a single module"""
+    
+    module_id: str                          # "comfyui"
+    enabled: bool                           # Whether to install
+    
+    # Module-specific config
+    config: Dict[str, Any]                  # Varies by module
+    
+    # For display
+    display_name: str
+    description: str
+    reasoning: List[str]                    # Why this recommendation
+    warnings: List[str]                     # Potential issues
+    
+    # Installation details
+    components: List[str]                   # What will be installed
+    estimated_size_gb: float
+    estimated_time_minutes: int
+    
+    # User overridable
+    optional_features: Dict[str, bool] = field(default_factory=dict)
+    advanced_options: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
 class RecommendationResult:
     """Complete output of the recommendation engine."""
     recommendation_id: str = field(default_factory=lambda: str(uuid4()))

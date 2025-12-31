@@ -56,7 +56,7 @@ class ComfyUIFrame(ctk.CTkFrame):
         win.title("Setup Wizard")
         win.geometry("600x750")
         
-        gpu, vram = SystemService.get_gpu_info()
+        _, gpu, vram = SystemService.get_gpu_info()
         ctk.CTkLabel(win, text=f"Detected: {gpu} ({vram} GB)", text_color="yellow").pack(pady=10)
         
         # --- Persona Presets ---

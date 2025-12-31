@@ -21,9 +21,8 @@ fi
 
 # 2. Permissions & Security Fix (The "Anti-Malware Warning" fix)
 echo "🛡️  Fixing permissions and whitelisting..."
-chmod +x start_dashboard.sh
+chmod +x Run_Unix.sh
 chmod +x Run_Mac.command
-chmod +x Run_Linux.sh
 
 # Remove the 'Quarantine' attribute that causes the "Unidentified Developer" popup
 # We try to remove it from the whole directory to be safe
@@ -34,7 +33,7 @@ DESKTOP_LAUNCHER="$HOME/Desktop/AI-Suite.command"
 
 echo "#!/bin/bash" > "$DESKTOP_LAUNCHER"
 echo "cd \"$INSTALL_DIR\"" >> "$DESKTOP_LAUNCHER"
-echo "./start_dashboard.sh" >> "$DESKTOP_LAUNCHER"
+echo "./Run_Unix.sh" >> "$DESKTOP_LAUNCHER"
 
 chmod +x "$DESKTOP_LAUNCHER"
 # Whitelist the desktop launcher specifically

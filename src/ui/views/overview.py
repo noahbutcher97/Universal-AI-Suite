@@ -14,12 +14,12 @@ class OverviewFrame(ctk.CTkFrame):
         info_card.pack(fill="x", pady=10)
         
         # System Info
-        gpu_name, vram = SystemService.get_gpu_info()
+        gpu_vendor, gpu_name, vram = SystemService.get_gpu_info()
         os_name = platform.system()
         
         ctk.CTkLabel(info_card, text=f"OS: {os_name}").pack(side="left", padx=20, pady=15)
         ctk.CTkLabel(info_card, text=f"GPU: {gpu_name}").pack(side="left", padx=20, pady=15)
-        ctk.CTkLabel(info_card, text=f"VRAM: {vram} GB").pack(side="left", padx=20, pady=15)
+        ctk.CTkLabel(info_card, text=f"VRAM: {vram:.1f} GB").pack(side="left", padx=20, pady=15)
 
         # Env Checks (Quick View)
         env = SystemService.verify_environment()

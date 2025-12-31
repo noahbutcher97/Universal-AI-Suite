@@ -3,7 +3,7 @@ import platform
 import subprocess
 import sys
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from functools import lru_cache
 from src.services.system_service import SystemService
 from src.utils.logger import log
@@ -15,6 +15,12 @@ class DevService:
     @property
     def _providers(self):
         return config_manager.get_resources().get("modules", {}).get("cli_provider", {}).get("providers", {})
+
+    @staticmethod
+    def get_all_providers() -> List[str]:
+        """Returns a list of all available CLI provider keys."""
+        resources = config_manager.get_resources()
+        return list(resources.get("modules", {}).get("cli_provider", {}).get("providers", {}).keys())
 
     @staticmethod
     def get_provider_config(provider_name: str) -> Optional[dict]:
@@ -102,15 +108,10 @@ class DevService:
         """
         Validate an API key by making a minimal API call.
         """
-        # This implementation requires specific logic per provider.
-        # For prototype, we might just check length or basic format.
-        # Ideally, we make a curl request.
-        
         if not api_key:
             return False
             
         if provider == "gemini":
-            # Simple check or call models.list
             try:
                 import requests
                 url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
@@ -120,7 +121,6 @@ class DevService:
                 return False
                 
         elif provider == "claude":
-            # Anthropic check
             try:
                 import requests
                 url = "https://api.anthropic.com/v1/models"
@@ -130,7 +130,7 @@ class DevService:
             except:
                 return False
                 
-        return True # Default to True if we can't check, assuming user knows best
+        return True 
 
     @staticmethod
     def get_binary_path(provider_name: str) -> Optional[str]:
@@ -138,3 +138,8 @@ class DevService:
         tool = DevService.get_provider_config(provider_name)
         if not tool: return None
         return shutil.which(tool.get("bin"))
+    
+    @staticmethod
+    def clear_cache():
+        """Clears any caches."""
+        SystemService.check_dependency.cache_clear()

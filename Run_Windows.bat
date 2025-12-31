@@ -38,6 +38,6 @@ IF %ERRORLEVEL% NEQ 0 (
 python "%~dp0launch.py"
 
 IF %ERRORLEVEL% NEQ 0 (
-    ECHO [ERROR] Application crashed.
+    ECHO [ERROR] Application crashed or failed to start.
     PAUSE
 )

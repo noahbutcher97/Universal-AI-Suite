@@ -4,7 +4,7 @@ import platform
 import sys
 import os
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 from functools import lru_cache
 from src.utils.logger import log
 from src.schemas.environment import EnvironmentReport
@@ -172,3 +172,12 @@ class SystemService:
             return True
         except:
             return False
+
+    @staticmethod
+    def verify_environment() -> Dict[str, bool]:
+        """Quick check for Overview Frame."""
+        return {
+            "git": SystemService.check_dependency("Git", ("git", "--version")),
+            "node": SystemService.check_dependency("Node", ("node", "--version")),
+            "npm": SystemService.check_dependency("NPM", ("npm", "--version"))
+        }

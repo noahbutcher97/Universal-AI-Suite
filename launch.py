@@ -8,15 +8,39 @@ import sys
 import os
 import subprocess
 import platform
+import logging
+from logging.handlers import RotatingFileHandler
 import shutil
+import time
 
-# Minimum Python version required
+# Configuration
 MIN_PYTHON = (3, 10)
+APP_NAME = "AI Universal Suite"
+LOG_FILENAME = "launcher.log"
+
+# Setup Logging
+def setup_logging():
+    """Configures logging to file and console."""
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    
+    # File Handler
+    file_handler = RotatingFileHandler(LOG_FILENAME, maxBytes=1024*1024, backupCount=5)
+    file_handler.setFormatter(logging.Formatter(log_format))
+    
+    # Console Handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter(log_format))
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[file_handler, console_handler]
+    )
 
 def check_python_version():
+    """Ensures Python version is sufficient."""
     if sys.version_info < MIN_PYTHON:
-        print(f"Error: Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ is required.")
-        print(f"Current version: {sys.version}")
+        logging.error(f"Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]}+ is required.")
+        logging.error(f"Current version: {sys.version}")
         sys.exit(1)
 
 def get_env_paths():
@@ -45,107 +69,106 @@ def get_env_paths():
 def setup_venv(paths):
     """Creates venv if missing."""
     if not os.path.exists(paths["venv"]):
-        print(f"[INIT] Creating virtual environment in {paths['venv']}...")
+        logging.info(f"Creating virtual environment in {paths['venv']}...")
         try:
             subprocess.check_call([sys.executable, "-m", "venv", paths["venv"]])
         except subprocess.CalledProcessError:
-            print("Error: Failed to create virtual environment.")
+            logging.error("Failed to create virtual environment.")
             sys.exit(1)
     
     # Verify python exists in venv
     if not os.path.exists(paths["python"]):
-        print(f"Error: Virtual environment python not found at {paths['python']}")
-        # Fallback for unix sometimes calling it python instead of python3
+        # Unix fallback: sometimes it's 'python' not 'python3' inside venv
         if platform.system() != "Windows":
              alt_path = paths["python"].replace("python3", "python")
              if os.path.exists(alt_path):
                  return alt_path
+        
+        logging.error(f"Virtual environment python not found at {paths['python']}")
         sys.exit(1)
         
     return paths["python"]
 
-def install_deps(pip_path):
+def install_deps(pip_path, root_dir):
     """Installs requirements from requirements.txt."""
-    print("[INIT] Installing dependencies...")
-    req_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "requirements.txt")
+    req_file = os.path.join(root_dir, "requirements.txt")
     
     if not os.path.exists(req_file):
-        print(f"FATAL: requirements.txt not found at {req_file}")
+        logging.error(f"requirements.txt not found at {req_file}")
         sys.exit(1)
 
-    cmd = [pip_path, "install", "-r", req_file, "--quiet"]
-        
+    logging.info("Installing/Verifying dependencies...")
+    
+    # Use subprocess to stream output to logger? 
+    # For now, just let it print to stdout so user sees progress, but wrap in try/catch
+    cmd = [pip_path, "install", "-r", req_file]
+    
     try:
+        # We assume pip output is useful for the user
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError as e:
-        print(f"FATAL: Failed to install dependencies from {req_file}.")
-        print(f"Pip exited with status {e.returncode}")
+        logging.error(f"Failed to install dependencies from {req_file}.")
+        logging.error(f"Pip exited with status {e.returncode}")
         sys.exit(1)
 
 def launch_app(python_path, root_dir):
     """Launches the main app."""
     main_script = os.path.join(root_dir, "src", "main.py")
-    print(f"[INFO] Launching AI Universal Suite...")
-    
-    # Flush stdout before replacing process or calling subprocess
-    sys.stdout.flush()
+    logging.info(f"Launching {APP_NAME}...")
     
     env = os.environ.copy()
     env["PYTHONPATH"] = root_dir
     
+    # Ensure stdout flush for logging
+    sys.stdout.flush()
+    
     try:
+        # We delegate execution to the venv python
+        # We don't capture output here to allow app to control console, 
+        # but the app itself (src/utils/logger.py) should handle its own logging.
         subprocess.call([python_path, main_script], env=env)
     except KeyboardInterrupt:
-        print("\nExiting...")
+        logging.info("Exiting...")
+    except Exception as e:
+        logging.error(f"Application crashed: {e}")
+
+def check_system_dependencies():
+    """Checks for essential external tools like git."""
+    if not shutil.which("git"):
+        logging.warning("Git is not found in PATH. Some features (cloning repositories) will fail.")
+        # We don't exit, but we warn.
 
 def main():
-    # #TODO: Add a pre-flight check for essential system dependencies.
-    # The application relies on 'git' for cloning repositories, but there is
-    # no check to ensure it's installed and available in the system's PATH.
-    # This can lead to silent failures or cryptic errors during the ComfyUI
-    # installation process.
-    #
-    # Suggested implementation:
-    # 1. Create a function `check_system_dependencies()`.
-    # 2. Inside this function, use `shutil.which('git')` to check for git.
-    # 3. If git is not found, display a user-friendly error message in the
-    #    console and, if possible, a graphical message box, then exit.
-    # 4. Call this function at the start of `main()`.
-    #
-    # Example:
-    #   if not shutil.which("git"):
-    #       print("FATAL: Git is not installed or not in your PATH.")
-    #       # Show messagebox here if tkinter is available
-    #       sys.exit(1)
-
-    check_python_version()
-    paths = get_env_paths()
+    setup_logging()
     
-    # Ensure .dashboard_env exists
-    if not os.path.exists(paths["env"]):
-        os.makedirs(paths["env"])
+    try:
+        logging.info("--- Launcher Started ---")
+        check_python_version()
+        check_system_dependencies()
         
-    venv_python = setup_venv(paths)
-    
-    # Normalize pip path if python path changed (Unix fallback)
-    if platform.system() != "Windows":
-        pip_path = os.path.join(os.path.dirname(venv_python), "pip")
-    else:
-        pip_path = paths["pip"]
+        paths = get_env_paths()
         
-    # #TODO: Enhance user feedback during dependency installation.
-    # The current `install_deps` function uses `--quiet` which suppresses
-    # most of the output from pip. While this keeps the console clean, it
-    # provides no feedback to the user, especially on the first run when
-    # dependencies are being downloaded and installed, which can take time.
-    #
-    # Suggested implementation:
-    # 1. Remove the `--quiet` flag from the pip command.
-    # 2. Consider adding a simple visual indicator like printing dots (...)
-    #    in a loop in a separate thread while the subprocess runs to show
-    #    that the application has not frozen.
-    install_deps(pip_path)
-    launch_app(venv_python, paths["root"])
+        # Ensure .dashboard_env exists
+        if not os.path.exists(paths["env"]):
+            os.makedirs(paths["env"])
+            
+        venv_python = setup_venv(paths)
+        
+        # Normalize pip path if python path changed (Unix fallback)
+        if platform.system() != "Windows" and "python3" not in os.path.basename(venv_python):
+            pip_path = os.path.join(os.path.dirname(venv_python), "pip")
+        else:
+            pip_path = paths["pip"]
+            
+        install_deps(pip_path, paths["root"])
+        launch_app(venv_python, paths["root"])
+        
+    except Exception as e:
+        logging.critical(f"Unhandled exception in launcher: {e}", exc_info=True)
+        print("An unexpected error occurred. Check launcher.log for details.")
+        if platform.system() == "Windows":
+            os.system("pause")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -36,4 +36,9 @@ def setup_logger(name="UniversalAISuite", log_file="app.log", level=logging.INFO
 
     return logger
 
+def get_logger(name):
+    """Returns a logger with the specified name."""
+    return logging.getLogger(name)
+
+# Default global logger
 log = setup_logger()

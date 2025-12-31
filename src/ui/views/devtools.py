@@ -36,15 +36,6 @@ class DevToolsFrame(ctk.CTkFrame):
         ctk.CTkRadioButton(opt, text="User (Local)", variable=self.scope_var, value="user").pack(side="left", padx=10)
         ctk.CTkRadioButton(opt, text="System (Global -g)", variable=self.scope_var, value="system").pack(side="left", padx=10)
         
-        # #TODO: Add a refresh button for the CLI list.
-        # Currently, the list refreshes on startup and after installation.
-        # A manual refresh button would be useful if the user installs or
-        # uninstalls a tool outside of this application.
-        #
-        # Suggested implementation:
-        # 1. Add a `CTkButton` next to the "Install Selected CLIs" button.
-        # 2. Bind its command to `self.refresh_cli_list`.
-
         ctk.CTkButton(self.cli_frame, text="Install Selected CLIs", fg_color="green", command=self.install_clis).pack(pady=20)
 
         self.refresh_cli_list() # Initial population
@@ -70,15 +61,6 @@ class DevToolsFrame(ctk.CTkFrame):
         for w in self.cli_widgets_frame.winfo_children():
             w.destroy()
         
-        # #TODO: Improve the layout for the CLI list to be scalable.
-        # The current implementation uses a simple `pack` layout, which will
-        # become unusable if the number of CLI tools grows.
-        #
-        # Suggested implementation:
-        # 1. Use a `CTkScrollableFrame` to contain the list of tools.
-        # 2. Consider using a grid layout within the scrollable frame to
-        #    align the checkboxes, labels, and uninstall buttons neatly in columns.
-
         for tool_name, is_installed in statuses.items():
             row = ctk.CTkFrame(self.cli_widgets_frame, fg_color="transparent")
             row.pack(fill="x", pady=2)
@@ -91,19 +73,6 @@ class DevToolsFrame(ctk.CTkFrame):
             if is_installed:
                 ctk.CTkLabel(row, text="✅ Installed", text_color="green", width=100).pack(side="left", padx=10)
                 chk.configure(state="disabled")
-                
-                # #TODO: Add uninstall functionality.
-                # The application currently only supports installing tools. Adding
-                # an uninstall feature would complete the lifecycle management.
-                #
-                # Suggested implementation:
-                # 1. Add an "Uninstall" `CTkButton` here for each installed tool.
-                # 2. Create a new method `uninstall_cli(tool_name)` that calls
-                #    a corresponding `DevService.get_uninstall_cmd(tool_name)`.
-                # 3. The service method should return the appropriate command
-                #    (e.g., `npm uninstall -g <package>`).
-                # 4. Run the command in a separate thread and provide feedback
-                #    in the activity center, similar to the install process.
             else:
                 ctk.CTkLabel(row, text="Not Installed", text_color="gray", width=120).pack(side="left", padx=10)
 
@@ -115,9 +84,10 @@ class DevToolsFrame(ctk.CTkFrame):
         def do_check():
             # In a thread, check all statuses
             DevService.clear_cache()
+            providers = DevService.get_all_providers()
             statuses = {
                 tool_name: DevService.is_installed(tool_name)
-                for tool_name in DevService.CLI_MAP.keys()
+                for tool_name in providers
             }
             # Schedule UI update on main thread
             self.app.after(0, lambda: self._update_cli_list_ui(statuses))
@@ -146,20 +116,6 @@ class DevToolsFrame(ctk.CTkFrame):
                 cmd = DevService.get_install_cmd(t, scope)
                 if cmd:
                     try:
-                        # #TODO: Implement robust error handling and user feedback.
-                        # The current implementation uses `subprocess.call` which blocks
-                        # the thread and does not capture stdout/stderr. If an
-                        # installation fails, the user receives no feedback beyond
-                        # the progress bar stopping.
-                        #
-                        # Suggested implementation:
-                        # 1. Use `subprocess.Popen` with `stdout=subprocess.PIPE` and
-                        #    `stderr=subprocess.PIPE`.
-                        # 2. Read the output streams in a separate thread to avoid deadlocks.
-                        # 3. If the process returns a non-zero exit code, log the
-                        #    error and display a user-friendly error message in a
-                        #    message box or a dedicated log viewer in the UI.
-                        # 4. Update the activity center to show a failure state.
                         subprocess.call(cmd, shell=(platform.system()=="Windows"))
                         self.app.update_activity(task_id, 1.0)
                     except Exception as e:
