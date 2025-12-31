@@ -1,48 +1,179 @@
 {
-    "clis": {
-        "Claude CLI": {"cmd": ["npm", "install", "@anthropic-ai/claude-code"], "type": "npm", "package": "@anthropic-ai/claude-code", "bin": "claude"},
-        "Gemini CLI": {"cmd": ["npm", "install", "@google/gemini-cli"], "type": "npm", "package": "@google/gemini-cli", "bin": "gemini"},
-        "Codex CLI": {"cmd": ["npm", "install", "@openai/codex"], "type": "npm", "package": "@openai/codex", "bin": "codex"},
-        "Grok CLI": {"cmd": ["npm", "install", "@vibe-kit/grok-cli"], "type": "npm", "package": "@vibe-kit/grok-cli", "bin": "grok"},
-        "DeepSeek CLI": {"cmd": ["pip", "install", "deepseek-cli"], "type": "pip", "package": "deepseek-cli", "bin": "deepseek-cli"}
+  "version": "2.0",
+  "use_cases": {
+    "content_generation": {
+      "display_name": "Content Generation",
+      "description": "Generate images and graphics using AI",
+      "icon": "🎨",
+      "capabilities": ["t2i", "i2i"],
+      "modules": ["comfyui"],
+      "optional_modules": ["cli_provider"]
     },
-    "comfy": {
-        "core": {
-            "url": "https://github.com/comfyanonymous/ComfyUI.git",
-            "manager": "https://github.com/ltdrdata/ComfyUI-Manager.git"
-        },
-        "model_tiers": {
-            "flux": { "min_vram": 12 },
-            "sdxl": { "min_vram": 8 },
-            "sd15": { "min_vram": 0 }
-        },
-        "models": {
-            "photorealistic": {
-                "flux": {"name": "Flux1-Schnell", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "hash": "a9e1e277"},
-                "sdxl": {"name": "Juggernaut XL v9", "url": "https://civitai.com/api/download/models/240840", "hash": "cc6cb271"},
-                "sd15": {"name": "Realistic Vision 6", "url": "https://civitai.com/api/download/models/130072", "hash": ""}
-            },
-            "anime": {
-                "flux": {"name": "Pony Diffusion V6 XL", "url": "https://civitai.com/api/download/models/290640", "hash": ""},
-                "sdxl": {"name": "Pony Diffusion V6 XL", "url": "https://civitai.com/api/download/models/290640", "hash": ""},
-                "sd15": {"name": "Anything V5", "url": "https://civitai.com/api/download/models/100675", "hash": ""}
-            },
-            "general": {
-                "flux": {"name": "Flux1-Schnell", "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors", "hash": ""},
-                "sdxl": {"name": "SDXL Base 1.0", "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors", "hash": ""},
-                "sd15": {"name": "SD 1.5 Pruned", "url": "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors", "hash": ""}
-            }
-        },
-        "features": {
-            "animatediff": {
-                "node": "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git",
-                "model": "https://huggingface.co/guoyww/animatediff/resolve/main/mm_sd_v15_v2.ckpt"
-            },
-            "ipadapter": "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git",
-            "controlnet": {
-                "node": "https://github.com/Fannovel16/comfyui_controlnet_aux.git",
-                "model": "https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_canny.pth"
-            }
-        }
+    "video_generation": {
+      "display_name": "Video Generation",
+      "description": "Animate images into video clips",
+      "icon": "🎬",
+      "capabilities": ["i2v"],
+      "modules": ["comfyui"],
+      "optional_modules": ["cli_provider"]
+    },
+    "productivity": {
+      "display_name": "AI Productivity",
+      "description": "AI assistant for writing, coding, and analysis",
+      "icon": "⚡",
+      "modules": ["cli_provider"],
+      "optional_modules": []
+    },
+    "full_stack": {
+      "display_name": "Full AI Workstation",
+      "description": "Complete setup with all AI tools",
+      "icon": "🚀",
+      "capabilities": ["t2i", "i2i", "i2v"],
+      "modules": ["cli_provider", "comfyui"],
+      "optional_modules": ["mcp_servers"]
     }
+  },
+  "modules": {
+    "cli_provider": {
+      "display_name": "AI Assistant CLI",
+      "providers": {
+        "claude": {
+          "display_name": "Claude (Anthropic)",
+          "package": "@anthropic-ai/claude-code",
+          "bin": "claude",
+          "capabilities": {
+            "coding": 0.95,
+            "creative_writing": 0.9,
+            "analysis": 0.9,
+            "multimodal": 0.5
+          }
+        },
+        "gemini": {
+          "display_name": "Gemini (Google)",
+          "package": "@google/gemini-cli",
+          "bin": "gemini",
+          "capabilities": {
+            "coding": 0.8,
+            "creative_writing": 0.85,
+            "analysis": 0.9,
+            "multimodal": 0.95
+          }
+        }
+      }
+    },
+    "comfyui": {
+      "display_name": "ComfyUI Studio",
+      "core": {
+        "repo": "https://github.com/comfyanonymous/ComfyUI.git",
+        "manager_repo": "https://github.com/ltdrdata/ComfyUI-Manager.git"
+      }
+    }
+  },
+  "comfyui_components": {
+    "custom_nodes": {
+      "ComfyUI-GGUF": {
+        "display_name": "GGUF Model Loader",
+        "repo": "https://github.com/city96/ComfyUI-GGUF.git",
+        "dest_folder": "custom_nodes/ComfyUI-GGUF"
+      },
+      "ComfyUI-VideoHelperSuite": {
+        "display_name": "Video Helper Suite",
+        "repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+        "dest_folder": "custom_nodes/ComfyUI-VideoHelperSuite"
+      },
+      "ComfyUI-AnimateDiff-Evolved": {
+        "display_name": "AnimateDiff",
+        "repo": "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved.git",
+        "dest_folder": "custom_nodes/ComfyUI-AnimateDiff-Evolved"
+      },
+      "ComfyUI-IPAdapter_plus": {
+        "display_name": "IP-Adapter Plus",
+        "repo": "https://github.com/cubiq/ComfyUI_IPAdapter_plus.git",
+        "dest_folder": "custom_nodes/ComfyUI_IPAdapter_plus"
+      },
+      "comfyui_controlnet_aux": {
+        "display_name": "ControlNet Preprocessors",
+        "repo": "https://github.com/Fannovel16/comfyui_controlnet_aux.git",
+        "dest_folder": "custom_nodes/comfyui_controlnet_aux"
+      }
+    },
+    "model_tiers": {
+      "flux": { "min_vram": 12, "min_ram": 32 },
+      "sdxl": { "min_vram": 8, "min_ram": 16 },
+      "sd15": { "min_vram": 4, "min_ram": 8 },
+      "gguf": { "min_vram": 0, "min_ram": 16 }
+    },
+    "models": {
+      "checkpoints": {
+        "flux_schnell": {
+          "display_name": "Flux.1 Schnell",
+          "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors",
+          "size_gb": 23.8,
+          "hash": "a9e1e277",
+          "tier": "flux",
+          "capabilities": { "t2i": 1.0, "photorealism": 0.9, "speed": 0.8 }
+        },
+        "sdxl_juggernaut": {
+          "display_name": "Juggernaut XL v9",
+          "url": "https://civitai.com/api/download/models/240840",
+          "size_gb": 6.5,
+          "hash": "cc6cb271",
+          "tier": "sdxl",
+          "capabilities": { "t2i": 0.9, "photorealism": 0.95, "speed": 0.6 }
+        }
+      },
+      "unet_gguf": {
+        "wan_i2v_high_q5": {
+          "display_name": "Wan 2.2 I2V High Noise (Q5)",
+          "url": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/HighNoise/Wan2.2-I2V-A14B-HighNoise-Q5_K_M.gguf",
+          "size_gb": 9.8,
+          "tier": "gguf",
+          "capabilities": { "i2v": 1.0, "motion_subtlety": 0.8, "temporal_coherence": 0.9 }
+        },
+        "wan_i2v_low_q5": {
+          "display_name": "Wan 2.2 I2V Low Noise (Q5)",
+          "url": "https://huggingface.co/QuantStack/Wan2.2-I2V-A14B-GGUF/resolve/main/LowNoise/Wan2.2-I2V-A14B-LowNoise-Q5_K_M.gguf",
+          "size_gb": 9.8,
+          "tier": "gguf",
+          "capabilities": { "i2v": 1.0, "motion_subtlety": 0.8, "temporal_coherence": 0.9 }
+        }
+      }
+    },
+    "workflows": {
+      "wan_i2v_basic": {
+        "id": "wan_i2v_basic",
+        "display_name": "Image to Video (Basic)",
+        "file": "workflows/wan_i2v_basic.json",
+        "required_models": ["wan_i2v_high_q5", "wan_i2v_low_q5"],
+        "required_nodes": ["ComfyUI-GGUF", "ComfyUI-VideoHelperSuite"]
+      }
+    }
+  },
+  "recommendation_config": {
+    "scoring_weights": {
+      "composite": { "hardware_fit": 0.50, "user_fit": 0.35, "approach_fit": 0.15 },
+      "user_fit_components": { "style_tag_match_bonus": 0.05, "style_tag_max_bonus": 0.20 },
+      "hardware_penalties": { 
+        "quantization_required": -0.15, 
+        "storage_over_50pct": -0.15,
+        "storage_hdd": -0.20,
+        "thermal_throttle_risk": -0.20,
+        "on_battery": -0.25 
+      },
+      "hardware_bonuses": { "good_thermal_demanding_model": 0.05 },
+      "approach_penalties": { "too_many_nodes_for_simplicity": -0.20, "approach_mismatch": -0.40 }
+    },
+    "hard_limits": {
+      "flux_min_vram": 12,
+      "sdxl_min_vram": 8,
+      "video_min_vram": 8,
+      "storage_max_usage_pct": 0.8
+    },
+    "proficiency_thresholds": {
+      "beginner": {"ai_max": 2, "tech_max": 2},
+      "intermediate": {"either_min": 3},
+      "advanced": {"either_min": 4},
+      "expert": {"both_min": 4}
+    }
+  }
 }

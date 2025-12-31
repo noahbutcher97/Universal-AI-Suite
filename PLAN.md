@@ -1,86 +1,53 @@
-# 🗺️ Project Roadmap: Advanced AI Workstation Manager
+# 🗺️ Project Roadmap: AI Universal Suite v2.0 (Refined)
 
-**Current Status**: Phase 3 Complete (Visual Polish).
-**Next Phase**: Phase 4 (Intelligent Recommendation Engine & Workflow Management).
-
----
-
-## 🎯 Strategic Vision
-
-Transform the application from a simple installer into a comprehensive **AI Workstation Manager** capable of intelligently matching user intent with technical reality. The system must act as a bridge, ensuring users are never overwhelmed by unassisted systems navigation or scripting.
+**Current Status**: Phase 1 (Re-Architecture & Data Modeling).
+**Objective**: Implement a robust, adaptive, and data-driven recommendation engine as per Spec Section 13.
 
 ---
 
-## 1. Guardrail Specification & Constraints
-The system must enforce strict operational boundaries to prevent system instability.
+## Phase 1: Robust Data Modeling & Algorithm Design (IN PROGRESS)
+**Priority: CRITICAL - Foundation for Adaptive Logic.**
 
-*   **Hardware Constraints**:
-    *   **VRAM Hard Limits**: Prevent installation of models exceeding physical VRAM (e.g., Block Flux on < 8GB VRAM unless GGUF is selected).
-    *   **RAM Buffers**: Ensure system RAM allows for model loading overhead (+2GB buffer).
-    *   **Storage Check**: Pre-flight check for disk space before starting multi-GB downloads.
-*   **Forbidden Actions**:
-    *   No overriding of system-critical Python environments (Must use `venv`).
-    *   No execution of unverified custom nodes without explicit user "High Risk" confirmation.
+*   [x] **UI Crash Fix**: Fixed `messagebox` import in `src/ui/views/comfyui.py`.
+*   [x] **Apple Silicon Fix**: Rewrote `SystemService.get_gpu_info()` to use `sysctl` logic.
+*   [x] **Hardware Scanning**: Implemented `scan_full_environment()` returning `EnvironmentReport`.
+*   [ ] **Detailed Data Schemas**:
+    *   Expand `UserProfile` to include 1-5 capability scores (Speed, Quality, Consistency, etc.).
+    *   Define `ModelCapabilityScores` (0.0-1.0 normalized metrics).
+    *   Define `CLICandidate` with capability tags for weighted scoring.
+*   [ ] **Scoring Configuration**:
+    *   Update `resources.json` to include `recommendation_config` (Weights, Penalties, Bonuses).
+    *   Add scoring metadata to CLI Providers (e.g., `coding: 0.9`, `creative_writing: 0.7`).
 
-## 2. Advanced Mode Triggers & Workflow
-**Advanced Mode** is a distinct operational state enabled by:
-*   **User Selection**: Selecting "Expert" proficiency in Stage 2.
-*   **Manual Toggle**: A persistent "Enable Advanced Configuration" toggle in the review screen.
+## Phase 2: Core Services Implementation
+**Objective**: Build the logic layer that consumes the Phase 1 Data Models.
 
-**Capabilities Unlocked**:
-*   Manual selection/deselection of individual model files.
-*   Access to raw `.json` workflow template editing.
-*   Ability to install arbitrary custom nodes via URL.
-*   GGUF Custom Node manual configuration.
+*   [ ] **Scoring Engine**: Create `src/services/scoring_service.py` implementing the algorithm from Spec Section 13.5.
+    *   Input: `UserProfile`, `HardwareConstraints`, `List[Candidate]`.
+    *   Output: `RankedCandidates` with detailed reasoning trace.
+*   [ ] **Download Service**: Create `src/services/download_service.py` with robust retry/hash logic.
+*   [ ] **Shortcut Service**: Create `src/services/shortcut_service.py`.
 
-## 3. Input Validation & Data Integrity
-*   **User Profile Input**:
-    *   Must validate "Proficiency" against allowed enum: `['Beginner', 'Intermediate', 'Advanced', 'Expert']`.
-    *   Styles must map to defined tags in `resources.json`.
-*   **Resource Validation**:
-    *   **Checksums**: All downloads *must* pass SHA256 verification (Strict Mode for production assets).
-    *   **JSON Schema**: `resources.json` must be validated against a strict schema on load.
+## Phase 3: Setup Wizard UI
+**Objective**: Collect the high-resolution user data required by the Scoring Engine.
 
-## 4. Output Schema Definition (Recommendation Engine)
-The `RecommendationService` must return a structured object:
+*   [ ] **Survey Architecture**: Create `src/ui/wizard/` with specific stages for:
+    *   **Experience Assessment**: Collect `ai_experience` and `technical_experience` (1-5).
+    *   **Content Preferences**: Collect `photorealism`, `speed_priority`, `editing_needs` (1-5).
+*   [ ] **Live Feedback**: Display "Hardware Constraints" vs "User Desires" gaps in real-time during the review step.
 
-```json
-{
-  "recommendation_id": "uuid",
-  "score": 0.95,
-  "setup_profile": {
-    "base_model": "sdxl_juggernaut",
-    "quantization": "none",
-    "custom_nodes": ["controlnet_aux", "ipadapter_plus"],
-    "workflow_template": "photorealism_v2.json"
-  },
-  "reasoning": [
-    "Selected SDXL over Flux due to 8GB VRAM constraint.",
-    "Added ControlNet because 'Editing' was prioritized."
-  ],
-  "warnings": []
-}
-```
+## Phase 4: Integration & Dynamic Mapping
+**Objective**: Connect the Recommendation Engine to the Installer.
 
-## 5. Tool Usage & Technical Constraints
-*   **Subprocess Management**: All external commands (git, pip) must be executed via a centralized, thread-safe runner with timeout safeguards.
-*   **MCP/Agent Constraints**:
-    *   File operations restricted to `ComfyUI` and `.dashboard_env` directories.
-    *   No modification of system-wide PATH or Registry outside of the initial setup script.
+*   [ ] **Dynamic Manifest**: `ComfyService` generates manifests *dynamically* based on the `ScoringEngine` output, not hardcoded paths.
+*   [ ] **CLI Provisioning**: Auto-select and configure the best CLI provider (Claude/Gemini) based on user's `coding` vs `writing` weights.
 
-## 6. Error Handling Protocols
-*   **Download Failures**:
-    *   **Retry Logic**: Exponential backoff (3 attempts).
-    *   **Fallback**: If primary source fails, attempt configured mirror.
-    *   **User Action**: "Resume" button in Activity Center (no full restart).
-*   **Installation Failures**: Rollback changes to the specific component (delete partial directory) and notify user with a clear "Try Again" option.
+---
 
-## 7. Performance Targets
-*   **Recommendation Latency**: Engine must generate specific recommendations in < 200ms.
-*   **UI Responsiveness**: The main thread must *never* block. All file I/O and hashing must occur in background threads.
-*   **Resource Usage**: The Dashboard itself must consume < 150MB RAM to leave room for AI models.
-
-## 8. Security Directives
-*   **Data Handling**: User profile data (skill level, hardware specs) is processed locally in-memory only. No telemetry upload.
-*   **Access Control**: API Keys continue to use the OS Keyring.
-*   **Content Safety**: Community workflows must be scanned for malicious nodes (e.g., `ComfyUI-Manager` "BAD_ID" list check) before suggestion.
+## 5. Technical Constraints & Validation
+*   **No Hardcoding**: All scoring weights must live in `resources.json`, not Python code.
+*   **Validation Metrics**:
+    *   Verify "Expert" profile selects Flux/SDXL.
+    *   Verify "Beginner" + "Low VRAM" selects SD1.5 + Quantization.
+    *   Verify "Coding" intent selects Claude/Codex over Gemini (if weights dictate).
+*   **Unit Tests**: `tests/test_scoring.py` must exist to validate the algorithm math.
