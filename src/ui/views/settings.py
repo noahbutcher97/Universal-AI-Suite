@@ -32,14 +32,23 @@ class SettingsFrame(ctk.CTkFrame):
                 
             self.key_entries[provider] = ent
             
-        ctk.CTkButton(self, text="Save Keys", command=self.save_keys).pack(pady=20)
+        ctk.CTkButton(keys_frame, text="Save Keys", command=self.save_keys).pack(pady=20)
         
-        # Migration Trigger (Hidden usually, but running once on init)
-        # config_manager.migrate_legacy_keys() # Called in manager init or here
+        # System Section
+        sys_frame = ctk.CTkFrame(self)
+        sys_frame.pack(fill="x", pady=20)
+        ctk.CTkLabel(sys_frame, text="System & Maintenance", font=("Arial", 14, "bold")).pack(anchor="w", padx=10, pady=5)
+        
+        ctk.CTkButton(sys_frame, text="Re-run Setup Wizard", fg_color="#555555", command=self.rerun_wizard).pack(anchor="w", padx=20, pady=20)
 
     def save_keys(self):
         for k, ent in self.key_entries.items():
             val = ent.get().strip()
-            config_manager.set_secure(k, val)
+            if val:
+                config_manager.set_secure(k, val)
             
         messagebox.showinfo("Saved", "API Keys saved securely to OS Keychain.")
+
+    def rerun_wizard(self):
+        if messagebox.askyesno("Confirm", "This will re-scan your system and may overwrite existing configurations. Continue?"):
+            self.app.show_setup_wizard()

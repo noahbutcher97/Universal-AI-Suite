@@ -2,6 +2,8 @@ import shutil
 import platform
 import subprocess
 import sys
+import os
+from typing import List, Optional
 from functools import lru_cache
 from src.services.system_service import SystemService
 from src.utils.logger import log
@@ -9,90 +11,130 @@ from src.config.manager import config_manager
 
 class DevService:
     """A service for managing developer command-line interface (CLI) tools."""
-    _RESOURCES = config_manager.get_resources().get("clis", {})
-    CLI_MAP = _RESOURCES
+    
+    @property
+    def _providers(self):
+        return config_manager.get_resources().get("modules", {}).get("cli_provider", {}).get("providers", {})
 
     @staticmethod
-    @lru_cache(maxsize=32)
-    def is_installed(tool_name):
-        """
-        Checks if a CLI tool is installed. Results are cached.
+    def get_provider_config(provider_name: str) -> Optional[dict]:
+        resources = config_manager.get_resources()
+        return resources.get("modules", {}).get("cli_provider", {}).get("providers", {}).get(provider_name)
 
-        Args:
-            tool_name (str): The name of the tool to check (e.g., "Claude CLI").
-
-        Returns:
-            bool: True if the tool is found, False otherwise.
+    @staticmethod
+    def is_installed(provider_name: str) -> bool:
         """
-        tool = DevService.CLI_MAP.get(tool_name)
+        Checks if a CLI tool is installed.
+        """
+        tool = DevService.get_provider_config(provider_name)
         if not tool: return False
         
-        # Check Binary on PATH (fastest)
+        # Check Binary on PATH
         if "bin" in tool and shutil.which(tool["bin"]):
             return True
             
-        # Fallback checks (slower)
-        if tool["type"] == "npm":
+        # Fallback checks
+        pkg_type = tool.get("package_type")
+        pkg = tool.get("package")
+        
+        if pkg_type == "npm":
             if not SystemService.check_dependency("NPM", ("npm", "--version")): return False
             try:
-                # Check global list
-                subprocess.check_call(["npm", "list", "-g", tool["package"], "--depth=0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+                subprocess.check_call(["npm", "list", "-g", pkg, "--depth=0"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
                 return True
             except: return False
         
-        if tool["type"] == "pip":
-            pkg = tool["package"]
+        if pkg_type == "pip":
             cmd = tuple([sys.executable, "-m", "pip", "show", pkg])
             return SystemService.check_dependency(pkg, cmd)
             
         return False
 
     @staticmethod
-    def get_install_cmd(tool_name, scope="user"):
+    def get_install_cmd(provider_name: str, scope="user") -> List[str]:
         """
         Constructs the installation command for a given tool.
-
-        Args:
-            tool_name (str): The name of the tool.
-            scope (str): 'user' for local install, 'system' for global.
-
-        Returns:
-            list: A list of command arguments for subprocess, or None.
         """
-        tool = DevService.CLI_MAP.get(tool_name)
-        if not tool: return None
+        tool = DevService.get_provider_config(provider_name)
+        if not tool: return []
         
-        cmd = list(tool["cmd"])
+        pkg = tool.get("package")
+        pkg_type = tool.get("package_type")
         
-        if tool["type"] == "npm":
-            if scope == "system": 
+        if pkg_type == "npm":
+            cmd = ["npm", "install", pkg]
+            if scope == "system" or True: # Force global for CLIs usually
                 cmd.insert(2, "-g")
-            # For user scope in npm, it's default behavior.
+            return cmd
             
-        elif tool["type"] == "pip":
-            # Always use current python executable
-            cmd = [sys.executable, "-m"] + cmd
+        elif pkg_type == "pip":
+            cmd = [sys.executable, "-m", "pip", "install", pkg]
             if scope == "user": 
                 cmd.append("--user")
+            return cmd
                 
-        return cmd
-
-    # #TODO: Implement uninstall functionality for CLI tools.
-    # The service layer should provide a method to generate uninstall commands,
-    # complementing the existing install functionality. This is essential for
-    # complete lifecycle management of the tools.
-    #
-    # Suggested implementation:
-    # 1. Create a new static method `get_uninstall_cmd(tool_name, scope)`.
-    # 2. In this method, look up the tool in `CLI_MAP`.
-    # 3. Based on the tool's type (`npm` or `pip`), construct the uninstall
-    #    command. For example:
-    #    - npm: `['npm', 'uninstall', '-g', tool['package']]`
-    #    - pip: `[sys.executable, '-m', 'pip', 'uninstall', '-y', tool['package']]`
-    # 4. The UI layer will call this method to get the command and then execute
-    #    it in a separate thread.
+        return []
 
     @staticmethod
-    def clear_cache():
-        """Clears the cache for is_installed checks."""
-        DevService.is_installed.cache_clear()
+    def get_uninstall_cmd(provider_name: str, scope="user") -> List[str]:
+        """
+        Get uninstall command for a CLI tool.
+        """
+        tool = DevService.get_provider_config(provider_name)
+        if not tool: return []
+
+        pkg = tool.get("package")
+        pkg_type = tool.get("package_type")
+        
+        if pkg_type == "npm":
+            cmd = ["npm", "uninstall", pkg]
+            if scope == "system" or True:
+                cmd.insert(2, "-g")
+            return cmd
+            
+        elif pkg_type == "pip":
+            return [sys.executable, "-m", "pip", "uninstall", "-y", pkg]
+            
+        return []
+
+    @staticmethod
+    def validate_api_key(provider: str, api_key: str) -> bool:
+        """
+        Validate an API key by making a minimal API call.
+        """
+        # This implementation requires specific logic per provider.
+        # For prototype, we might just check length or basic format.
+        # Ideally, we make a curl request.
+        
+        if not api_key:
+            return False
+            
+        if provider == "gemini":
+            # Simple check or call models.list
+            try:
+                import requests
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                response = requests.get(url, timeout=5)
+                return response.status_code == 200
+            except:
+                return False
+                
+        elif provider == "claude":
+            # Anthropic check
+            try:
+                import requests
+                url = "https://api.anthropic.com/v1/models"
+                headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+                response = requests.get(url, headers=headers, timeout=5)
+                return response.status_code == 200
+            except:
+                return False
+                
+        return True # Default to True if we can't check, assuming user knows best
+
+    @staticmethod
+    def get_binary_path(provider_name: str) -> Optional[str]:
+        """Get full path to installed CLI binary."""
+        tool = DevService.get_provider_config(provider_name)
+        if not tool: return None
+        return shutil.which(tool.get("bin"))

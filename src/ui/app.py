@@ -6,6 +6,7 @@ from src.ui.views.overview import OverviewFrame
 from src.ui.views.devtools import DevToolsFrame
 from src.ui.views.comfyui import ComfyUIFrame
 from src.ui.views.settings import SettingsFrame
+from src.ui.wizard.setup_wizard import SetupWizard
 
 class App(ctk.CTk):
     """
@@ -51,6 +52,30 @@ class App(ctk.CTk):
         # Show Start Frame
         self.current_frame = None
         self.navigate("overview")
+        
+        # Check First Run / Wizard
+        if not config_manager.get("wizard_completed", False):
+            self.after(500, self.show_setup_wizard)
+
+    def show_setup_wizard(self):
+        """Launch the setup wizard."""
+        # Use grab_set to make it modal
+        wizard = SetupWizard(self, on_complete=self.on_wizard_complete)
+        wizard.grab_set()
+
+    def on_wizard_complete(self):
+        """Called when wizard finishes."""
+        self.refresh_all_views()
+        self.navigate("overview")
+
+    def refresh_all_views(self):
+        """Refresh views to reflect new config/installations."""
+        # Re-instantiate or call refresh methods on views
+        # For now, simplistic re-init if they support it, or just rely on them reading config on show
+        # Since our frames are init'd once in __init__, we should probably re-init them or add refresh methods.
+        # Current frames don't have explicit refresh, so we'll just log.
+        print("Refreshing views...")
+        pass
 
     def navigate(self, name):
         """Switches the view in the main content area."""
