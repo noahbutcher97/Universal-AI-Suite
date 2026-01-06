@@ -87,7 +87,7 @@ Consolidated from architectural audits (2026-01-06). Updated after Phase 1 Week 
 - [ ] **ShortcutService** - Cross-platform (.bat/.command/.desktop)
 - [ ] **Integration tests** - Config persistence (unit tests done, integration pending)
 
-### CODE: PyTorch/CUDA Dynamic Installation
+### CODE: PyTorch/CUDA Dynamic Installation ⚠️ CORE VALUE PROP
 - [ ] **Installation logic not implemented** (detection IS implemented)
   - Spec: `docs/spec/CUDA_PYTORCH_INSTALLATION.md` (complete)
   - What EXISTS: `nvidia.py` detects compute capability (8.9, 12.0, etc.)
@@ -95,8 +95,9 @@ Consolidated from architectural audits (2026-01-06). Updated after Phase 1 Week 
     - `get_pytorch_config(compute_capability)` → returns cu130/cu121/cu118
     - `install_pytorch(config)` → pip install into venv
     - Version matrix: Blackwell→cu130, Ada→cu130, Volta→cu121, Pascal→cu118
-  - Note: Can be deferred to Phase 1 Week 3 or v3.1
-  - Impact: Users must manually install correct PyTorch version
+  - **CRITICAL**: This is core to "zero terminal interaction" principle
+  - Impact: Without this, users must manually install PyTorch - defeats app purpose
+  - Priority: Should be Phase 1 Week 3 (not optional)
 
 ### DATA: Cloud API Pricing Gaps
 - [ ] **SPEC §8.2.3 Image API pricing matrix** - Only video detailed

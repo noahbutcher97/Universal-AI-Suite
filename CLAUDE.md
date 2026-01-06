@@ -37,17 +37,26 @@ python launch.py
 
 Core principle: **Zero terminal interaction** - every action achievable through GUI.
 
+This includes:
+- **PyTorch/CUDA installation** - auto-detected GPU, auto-installed correct version
+- **Model downloads** - handled by DownloadService with progress UI
+- **ComfyUI setup** - cloned and configured automatically
+- **Custom node installation** - via ComfyUI-Manager integration
+
+**Users should NEVER need to run pip, git, or any terminal commands.**
+
 Tech stack: Python 3.10+, CustomTkinter, Service-Oriented Architecture
 
 ## Current Gaps (Code vs Spec)
 
 | Area | Current Code | Spec Requires | Files to Fix |
 |------|--------------|---------------|--------------|
-| Recommendation | Single-pass weighted scoring | 3-layer: CSP→Content→TOPSIS | `scoring_service.py`, `recommendation_service.py` |
-| Hardware Detection | 16GB fallback on error | Platform-specific detectors, no fallbacks | `system_service.py` |
-| Model Source | Reads `resources.json` | Use `models_database.yaml` | `recommendation_service.py` |
+| Recommendation | Single-pass weighted scoring | 3-layer: CSP→Content→TOPSIS | `scoring_service.py` (stubs ready in `recommendation/`) |
+| PyTorch Install | Detection only | Auto-install correct CUDA/PyTorch | TO CREATE: `pytorch_service.py` |
 | Onboarding | Single use-case-first path | Dual-path (Quick 5 / Comprehensive 15-20) | `setup_wizard.py` |
-| Platform Constraints | Not enforced | K-quant filtering, memory ceiling | `system_service.py` |
+| ~~Model Source~~ | ~~Reads `resources.json`~~ | ~~Use `models_database.yaml`~~ | ✅ FIXED: `model_database.py` |
+| ~~Hardware Detection~~ | ~~16GB fallback~~ | ~~Platform-specific detectors~~ | ✅ FIXED: `services/hardware/` |
+| ~~Platform Constraints~~ | ~~Not enforced~~ | ~~K-quant filtering, memory ceiling~~ | ✅ FIXED: `hardware.py` |
 
 ## Architecture
 
@@ -56,16 +65,16 @@ Tech stack: Python 3.10+, CustomTkinter, Service-Oriented Architecture
 ```
 Layer 1: CSP (Constraint Satisfaction)
     → Binary elimination: VRAM, platform, compute capability
-    → Files needed: constraint_layer.py (TO CREATE)
+    → File: constraint_layer.py ✅ (stub exists, Phase 3 implementation)
 
 Layer 2: Content-Based Filtering
     → Cosine similarity on 5 aggregated user factors
-    → Files needed: content_layer.py (TO CREATE)
+    → File: content_layer.py ✅ (stub exists, Phase 3 implementation)
 
 Layer 3: TOPSIS Multi-Criteria Ranking
     → 5 criteria: content_similarity, hardware_fit, speed_fit, ecosystem_maturity, approach_fit
     → Closeness coefficients with explainable scores
-    → Files needed: topsis_layer.py (TO CREATE)
+    → File: topsis_layer.py ✅ (stub exists, Phase 3 implementation)
 
 Resolution Cascade: quantization → cpu_offload → substitution → workflow → cloud
 ```

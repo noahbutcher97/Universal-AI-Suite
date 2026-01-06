@@ -109,34 +109,6 @@ image_generation:
       rejected_vram: "Requires {required}GB VRAM. Consider GGUF Q4 variant (~10GB)."
       rejected_platform: "Not supported on Apple Silicon. Consider FLUX GGUF instead."
 
-        photorealism: 0.95
-        artistic_quality: 0.92
-        text_rendering: 0.85
-        speed: 0.3
-        consistency: 0.88
-      features:
-        - id: "text_rendering"
-          quality: "excellent"
-        - id: "photorealism"
-          quality: "excellent"
-      style_strengths: ["photorealistic", "cinematic", "portrait", "concept_art"]
-      controlnet_support: ["depth", "canny", "pose"]
-    
-    dependencies:
-      required_nodes: []
-      paired_models: []
-      incompatibilities: []
-    
-    cloud:
-      partner_node: false
-      replicate: true
-      estimated_cost_per_generation: 0.05
-    
-    explanation:
-      selected: "Highest quality image generation with excellent text rendering"
-      rejected_vram: "Requires {required}GB VRAM. Consider GGUF Q4 variant (~10GB)."
-      rejected_platform: "Not supported on Apple Silicon. Consider FLUX GGUF instead."
-
   hidream_i1_fast:
     name: "HiDream-I1 Fast"
     family: "hidream"
