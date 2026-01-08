@@ -52,7 +52,7 @@ Tech stack: Python 3.10+, CustomTkinter, Service-Oriented Architecture
 | Area | Current Code | Spec Requires | Files to Fix |
 |------|--------------|---------------|--------------|
 | Recommendation | Single-pass weighted scoring | 3-layer: CSP→Content→TOPSIS | `scoring_service.py` (stubs ready in `recommendation/`) |
-| PyTorch Install | Detection only | Auto-install correct CUDA/PyTorch | TO CREATE: `pytorch_service.py` |
+| ~~PyTorch Install~~ | ~~Detection only~~ | ~~Auto-install correct CUDA/PyTorch~~ | ✅ FIXED: `pytorch_service.py` |
 | Onboarding | Single use-case-first path | Dual-path (Quick 5 / Comprehensive 15-20) | `setup_wizard.py` |
 | ~~Model Source~~ | ~~Reads `resources.json`~~ | ~~Use `models_database.yaml`~~ | ✅ FIXED: `model_database.py` |
 | ~~Hardware Detection~~ | ~~16GB fallback~~ | ~~Platform-specific detectors~~ | ✅ FIXED: `services/hardware/` |
@@ -67,8 +67,10 @@ Layer 1: CSP (Constraint Satisfaction)
     → Binary elimination: VRAM, platform, compute capability
     → File: constraint_layer.py ✅ (stub exists, Phase 3 implementation)
 
-Layer 2: Content-Based Filtering
-    → Cosine similarity on 5 aggregated user factors
+Layer 2: Content-Based Filtering (Modular Modality Architecture)
+    → Modality-specific scorers (ImageScorer, VideoScorer, etc.)
+    → Cosine similarity per modality, not flat vector
+    → UseCaseDefinition composes required modalities
     → File: content_layer.py ✅ (stub exists, Phase 3 implementation)
 
 Layer 3: TOPSIS Multi-Criteria Ranking
@@ -197,11 +199,25 @@ Key decisions are final. For full rationale, see `docs/plan/PLAN_v3.md` Section 
 | Area | Decision |
 |------|----------|
 | Recommendation | 3-layer (CSP→Content→TOPSIS) |
+| Content Layer | Modular modality architecture (per-modality scorers) |
 | Onboarding | Dual-path (Quick 5 / Comprehensive 15-20) |
 | HardwareTier | Effective capacity (VRAM + offload), not VRAM-only |
 | Model database | `data/models_database.yaml` |
 | Cloud APIs | Partner Nodes primary (ComfyUI 0.3.60+) |
 | Platform split | 40% Mac, 40% Windows, 20% Linux |
+
+## Decision Workflow for Architecture Changes
+
+**Before implementing any architecture/spec change**, follow this workflow:
+
+1. **Document Decision** → Add to `PLAN_v3.md` Section 1 (Decision Log)
+2. **Document Deprecations** → Add to `PLAN_v3.md` Section 7 (Deprecation Tracker)
+3. **Update Spec** → Modify `AI_UNIVERSAL_SUITE_SPEC_v3.md`
+4. **Update Plan** → Add tasks to `PLAN_v3.md` Section 2 (Task Tracker)
+5. **Update Agent Files** → `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`
+6. **Implement** → Follow Migration Protocol
+
+This ensures all documentation stays in sync with code changes.
 
 ## Current Phase
 

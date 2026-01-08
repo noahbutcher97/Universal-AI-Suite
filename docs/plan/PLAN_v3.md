@@ -153,6 +153,7 @@ Capturing key decisions made during planning and implementation. Reference this 
 | 2026-01-03 | Nested profiles in HardwareProfile | A) Flat structure B) Nested CPUProfile/RAMProfile/etc | Cleaner separation of concerns; each profile has own tier/methods |
 | 2026-01-03 | Shell output normalization utilities | A) Inline handling B) Per-command fixes C) Centralized utilities | PowerShell profiles can interfere with output; centralized `_run_powershell()`, `_extract_number_from_output()`, `_extract_json_from_output()` utilities prevent repeated issues |
 | 2026-01-03 | **HardwareTier = effective capacity** | A) VRAM only B) VRAM + offload viability | **CHANGES SPEC** - Tier should reflect actual runnable capacity, not just native GPU; see Extension below |
+| 2026-01-07 | **Modular Modality Architecture** | A) Flat ContentPreferences B) Modality-aware scoring C) Nested modality schema + scorers | **CHANGES SPEC** - Use cases can span multiple modalities (image+video, video+audio); each modality needs independent scoring with composable preferences; see Extension below |
 
 ### Extension: HardwareTier Calculation (2026-01-03)
 
@@ -245,6 +246,146 @@ def _calculate_tier(self) -> HardwareTier:
 | `cpu.py` | Windows registry (not PowerShell) | N/A |
 
 **Future Work**: Move utilities to `src/utils/subprocess_utils.py` for cross-module reuse.
+
+### Extension: Modular Modality Architecture (2026-01-07)
+
+**Problem**: Current `ContentPreferences` is a flat dataclass with fields for all modalities (image, video, audio, 3D). This creates several issues:
+
+1. **Multi-modal use cases**: Real workflows often span modalities:
+   - Character animation: image (character sheet) + video (animation)
+   - Music video: image + video + audio
+   - Game assets: image + 3D + video
+   - Illustrated story: text + image
+
+2. **Shared vs. modality-specific preferences**:
+   - `photorealism`, `artistic_stylization`, `generation_speed` → apply to ALL modalities
+   - `motion_intensity`, `temporal_coherence` → video ONLY
+   - `holistic_edits`, `localized_edits` → image editing ONLY
+   - `character_consistency` → image AND video (character workflows)
+
+3. **Scoring complexity**: Layer 2 currently builds one vector with all dimensions, even when a use case only involves one modality.
+
+**Solution**: Modular architecture with three components:
+
+```
+1. MODALITY PREFERENCES (Independent dataclasses)
+   ├── SharedQualityPrefs      # photorealism, speed, quality
+   ├── ImageModalityPrefs      # editability, pose_control, style_tags
+   ├── VideoModalityPrefs      # motion_intensity, temporal_coherence
+   ├── AudioModalityPrefs      # (future)
+   └── ThreeDModalityPrefs     # (future)
+
+2. USE CASE DEFINITION (Composes modalities)
+   UseCaseDefinition:
+     - id: "character_animation"
+     - required_modalities: ["image", "video"]
+     - shared: SharedQualityPrefs
+     - image: ImageModalityPrefs (if needed)
+     - video: VideoModalityPrefs (if needed)
+
+3. MODALITY SCORERS (Single responsibility)
+   ├── ImageScorer.score(candidates, prefs) → scored for image
+   ├── VideoScorer.score(candidates, prefs) → scored for video
+   └── ContentBasedLayer orchestrates based on required_modalities
+```
+
+**Benefits**:
+- **Single Responsibility**: Each scorer only knows its modality
+- **Open/Closed**: Add audio/3D without touching existing code
+- **Composable**: Use cases declare needs, system assembles
+- **Testable**: Each modality scorer testable in isolation
+- **Scalable**: New modalities = new `ModalityPrefs` + `ModalityScorer`
+
+**Impact on SPEC**:
+- Section 6.3 needs modality-aware architecture diagram
+- Section 10 needs updated `ContentPreferences` → `UseCaseDefinition` schema
+- `content_layer.py` needs modality scorer registry
+
+**Impact on Code**:
+- `src/schemas/recommendation.py`: Restructure preferences by modality
+- `src/services/recommendation/content_layer.py`: Add modality scorers
+- `tests/services/recommendation/test_content_layer.py`: Per-modality tests
+
+**Migration Path**:
+1. Create new modality preference dataclasses (additive)
+2. Create `UseCaseDefinition` schema (additive)
+3. Add modality scorers to `content_layer.py` (additive)
+4. Add conversion from old `ContentPreferences` to new schema
+5. Deprecate flat `ContentPreferences` (v1.1)
+6. Remove old schema (v2.0)
+
+### Extension: Decision Workflow for Architecture Changes (2026-01-07)
+
+**Problem**: Architecture changes have downstream impacts across multiple documents and files. Without a consistent workflow, changes get lost or inconsistently applied.
+
+**Solution**: Before implementing any architecture/spec change, follow this workflow:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: DOCUMENT DECISION                                              │
+│  ─────────────────────────                                              │
+│  Add entry to PLAN_v3.md Section 1 (Decision Log)                       │
+│  Include: Date, Decision, Options Considered, Rationale                 │
+│  If significant, add Extension section with full details                │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 2: DOCUMENT DEPRECATIONS                                          │
+│  ───────────────────────────                                            │
+│  Add entry to PLAN_v3.md Section 7 (Deprecation Tracker)                │
+│  Include: What's deprecated, Replacement, Remove By version             │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 3: UPDATE SPEC                                                    │
+│  ────────────────────                                                   │
+│  Update relevant sections in AI_UNIVERSAL_SUITE_SPEC_v3.md              │
+│  Add/modify architecture diagrams, schemas, algorithms                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 4: UPDATE PLAN                                                    │
+│  ─────────────────                                                      │
+│  Add implementation tasks to PLAN_v3.md Section 2 (Task Tracker)        │
+│  Include: Files to create/modify, test requirements                     │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 5: UPDATE AGENT INSTRUCTIONS                                      │
+│  ──────────────────────────────                                         │
+│  Update all agent instruction files with new architecture:              │
+│  - CLAUDE.md (Claude Code)                                              │
+│  - GEMINI.md (Gemini CLI)                                               │
+│  - AGENTS.md (General agents)                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  STEP 6: IMPLEMENT                                                      │
+│  ────────────────                                                       │
+│  Only after documentation is complete, begin implementation             │
+│  Follow Migration Protocol (docs/MIGRATION_PROTOCOL.md)                 │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why This Order**:
+1. **Decision first**: Prevents "forgetting" to document decisions
+2. **Deprecations next**: Forces thinking about migration path
+3. **Spec before code**: Spec is source of truth
+4. **Plan before code**: Tasks are trackable
+5. **Agent files**: All AI tools have consistent context
+6. **Implementation last**: Prevents drift between docs and code
+
+**When to Use This Workflow**:
+- Any change that affects SPEC_v3.md
+- Any new schema/dataclass design
+- Any new service architecture
+- Any deprecation of existing patterns
+- NOT needed for: bug fixes, small refactors, adding tests
 
 ---
 
@@ -497,10 +638,25 @@ def _calculate_tier(self) -> HardwareTier:
   - [ ] Storage space constraint (`_check_storage_constraint`) - uses StorageProfile
   - [ ] Return rejected candidates with reasons
   
-- [ ] Implement `ContentBasedLayer` (SPEC Section 6.3)
-  - [ ] User feature vector construction (from 5 aggregated factors)
-  - [ ] Model capability vector construction
-  - [ ] Cosine similarity calculation
+- [ ] Implement `ContentBasedLayer` with Modular Modality Architecture (SPEC Section 6.3)
+  - [ ] Create modality preference schemas in `recommendation.py`:
+    - [ ] `SharedQualityPrefs` (photorealism, artistic_stylization, generation_speed, output_quality, character_consistency)
+    - [ ] `ImageModalityPrefs` (editability, pose_control, holistic_edits, localized_edits, style_tags)
+    - [ ] `VideoModalityPrefs` (motion_intensity, temporal_coherence, duration_preference)
+    - [ ] `AudioModalityPrefs` (stub for future)
+    - [ ] `ThreeDModalityPrefs` (stub for future)
+  - [ ] Create `UseCaseDefinition` schema (id, name, required_modalities, composed prefs)
+  - [ ] Create `ModalityScorer` abstract base class with:
+    - [ ] `DIMENSIONS` and `DIMENSION_WEIGHTS` class attributes
+    - [ ] `build_user_vector()` abstract method
+    - [ ] `build_model_vector()` abstract method
+    - [ ] `score()` concrete method with cosine similarity
+  - [ ] Implement `ImageScorer(ModalityScorer)` in `content_layer.py`
+  - [ ] Implement `VideoScorer(ModalityScorer)` in `content_layer.py`
+  - [ ] Update `ContentBasedLayer` to orchestrate modality scorers:
+    - [ ] Scorer registry: `Dict[str, ModalityScorer]`
+    - [ ] `score_for_use_case(candidates, use_case: UseCaseDefinition)` method
+  - [ ] Add conversion from legacy `ContentPreferences` to new schema
   - [ ] Feature matching identification for explainability
 
 #### Week 7: Layer 3 & Resolution
@@ -674,6 +830,8 @@ See `docs/MIGRATION_PROTOCOL.md` for full migration patterns and procedures.
 | `resources.json` (model sections) | Pending | `models_database.yaml` | v1.0 | Active - migrate reads |
 | `system_service.get_gpu_info()` | 2026-01-03 | `HardwareDetector` classes | v1.0 | Migrated - delegates to new detectors |
 | `setup_wizard.py` (single path) | Pending | Dual-path flows | v1.0 | Active - wrong architecture |
+| `ContentPreferences` (flat schema) | 2026-01-07 | `UseCaseDefinition` + modality prefs | v1.1 | Active - migrate to modular schema |
+| `content_layer._build_user_vector()` (flat) | 2026-01-07 | Modality-specific `ModalityScorer` classes | v1.1 | Active - refactor to per-modality |
 
 **Rules:**
 - New code must NOT import deprecated modules
@@ -798,6 +956,163 @@ Phase 1 Week 3 (MANDATORY - not optional):
 | **Total** | **19** | **4** | **15** |
 
 *Note: Metrics exclude items that will be deleted (scoring_service.py magic numbers).*
+
+---
+
+## 10. UI Separation of Concerns
+
+> **Purpose**: Clearly define which features belong in the Setup/Installation Wizard vs the Post-Setup Dashboard.
+> This prevents scope creep during Phase 2/3 implementation.
+
+### 10.1 Setup Wizard (Phase 2) - One-Time Configuration
+
+The wizard runs **once** during initial setup. Its sole purpose is to configure the system.
+
+| Feature | Rationale | SPEC Section |
+|---------|-----------|--------------|
+| Hardware detection display | Users confirm detected hardware | §5.4 |
+| Path selection (Quick/Comprehensive) | User commitment level | §5.1 |
+| Use case selection | Primary workflow preferences | §5.2 |
+| Experience questions (Comprehensive) | Fine-tune recommendations | §5.3 |
+| Model tier recommendations | Initial model selection | §6 |
+| Installation progress | Download/setup tracking | §10 |
+| ComfyUI installation | One-time setup | §3 |
+| PyTorch/CUDA installation | One-time per hardware | CUDA_PYTORCH |
+| Desktop shortcut creation | One-time convenience | §11.5 |
+| API key entry (optional) | One-time credential storage | §8.3 |
+
+**NOT in Wizard**:
+- Estimated generation times (requires runtime data)
+- Model performance metrics (requires actual inference)
+- Recommendation refinement (post-setup activity)
+- Model management (add/remove models over time)
+- Usage analytics (accumulated over time)
+
+### 10.2 Post-Setup Dashboard (Phase 4+) - Ongoing Operations
+
+The dashboard is the **main UI** after setup completes. It supports ongoing model management.
+
+| Feature | Rationale | SPEC Section |
+|---------|-----------|--------------|
+| **Model Manager** | | §9.4 |
+| - Installed models list | Current state visibility | §9.4 |
+| - Estimated generation time | Runtime performance data | §6.7.7 |
+| - Model comparison | Side-by-side capabilities | TBD |
+| - Download new models | Post-setup expansion | §11.3 |
+| - Delete models | Storage management | §9.4 |
+| - Model update checking | Version management | TBD |
+| **Performance Insights** | | NEW |
+| - Inference speed estimates | LLM tok/s based on bandwidth | §6.7.7 |
+| - Memory pressure warnings | Runtime monitoring | NEW |
+| - Thermal state display | Live hardware status | §4.6.1 |
+| **Recommendation Refinement** | | NEW |
+| - "Recommend more models" | Iterative discovery | NEW |
+| - Feedback on recommendations | Quality improvement | NEW |
+| - Alternative suggestions | When current models underperform | §6.5 |
+| **Cloud Integration** | | §8 |
+| - Partner Node balance | Credit tracking | §8.2 |
+| - API usage monitoring | Cost tracking | NEW |
+| - Cloud vs local toggle | Per-workflow setting | §8.4 |
+
+### 10.3 Feature → Phase Mapping
+
+| Feature | Phase | Files Affected |
+|---------|-------|----------------|
+| Wizard hardware display | Phase 2 | `hardware_display.py` |
+| Wizard path selection | Phase 2 | `path_selector.py` |
+| Wizard question flow | Phase 2 | `tiered_question_flow.py` |
+| Wizard recommendations | Phase 3 | `recommendation/` layers |
+| Model Manager view | Phase 4 | `model_manager_view.py` |
+| Performance insights | Phase 4 | `performance_view.py` (NEW) |
+| Estimated gen time | Phase 4 | Uses `speed_fit` + bandwidth |
+| Cloud dashboard | Phase 5 | `cloud_apis_view.py` |
+
+### 10.4 Data Flow: Wizard → Dashboard
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        SETUP WIZARD (Phase 2)                       │
+│                                                                     │
+│  1. Detect Hardware ──► HardwareProfile saved to config            │
+│  2. User Answers ──► UserProfile saved to config                   │
+│  3. Run Recommendation ──► Selected models saved to config         │
+│  4. Install Models ──► installation.models_installed[]             │
+│  5. Complete ──► installation.status = "complete"                  │
+│                                                                     │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    POST-SETUP DASHBOARD (Phase 4+)                  │
+│                                                                     │
+│  ConfigManager.get("installation.models_installed")                │
+│  ConfigManager.get("user_profile")                                 │
+│  ConfigManager.get("hardware")  ◄── May re-detect for updates      │
+│                                                                     │
+│  NEW DATA:                                                          │
+│  - Actual inference benchmarks (optional, Phase 6)                 │
+│  - Usage statistics                                                │
+│  - Model feedback                                                  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 11. Best Practices Integration
+
+> **Purpose**: Ensure Phase 3 implementation follows established patterns.
+> Reference: `docs/ARCHITECTURE_PRINCIPLES.md`
+
+### 11.1 Recommendation Engine Best Practices
+
+| Practice | Implementation | Files |
+|----------|----------------|-------|
+| **No magic numbers** | All thresholds as named constants | All layers |
+| **Lookup tables** | GPU bandwidth, RAM bandwidth | Already in `nvidia.py`, `ram.py` |
+| **Explicit failure** | Layer errors raise, don't fallback | `constraint_layer.py` |
+| **Dataclasses** | All results as typed dataclasses | `PassingCandidate`, `RankedCandidate` |
+| **Testability** | Dependency injection of ModelDatabase | Constructor injection |
+
+### 11.2 Phase 3 Testing Requirements
+
+Each layer must have:
+
+| Test Category | Coverage Target | Notes |
+|---------------|-----------------|-------|
+| Unit tests per method | 100% | Mock `ModelDatabase` |
+| Hardware tier variations | All 6 tiers | WORKSTATION → MINIMAL |
+| Platform variations | All 4 platforms | NVIDIA, Apple, AMD, CPU-only |
+| Edge cases | Boundaries | Exact VRAM limits, 0 candidates |
+| Integration | Layers chained | Pass Layer 1 output to Layer 2 |
+
+### 11.3 Caching Strategy (Phase 6 Enhancement)
+
+Recommendation results can be cached for performance:
+
+```python
+# Future enhancement - not in Phase 3 MVP
+@lru_cache(maxsize=128)
+def get_recommendations(hardware_hash: str, profile_hash: str) -> List[RankedCandidate]:
+    ...
+```
+
+Cache invalidation triggers:
+- Hardware profile change
+- User profile change
+- Model database update
+- 24 hours elapsed
+
+### 11.4 Metrics Collection (Phase 6 Enhancement)
+
+Track recommendation quality for future improvement:
+
+| Metric | Purpose | Collection Point |
+|--------|---------|------------------|
+| `candidates_passed_layer1` | Filter effectiveness | After CSP |
+| `rejection_reasons` | Common constraints | CSP rejections |
+| `topsis_score_distribution` | Score health | Layer 3 output |
+| `user_override_count` | Recommendation accuracy | Dashboard |
 
 ---
 

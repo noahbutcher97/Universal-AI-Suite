@@ -17,7 +17,7 @@ from typing import List, Dict, Optional, Tuple
 import math
 
 from src.schemas.hardware import HardwareProfile, StorageTier
-from src.schemas.recommendation import UserProfile
+from src.schemas.recommendation import UserProfile, ContentPreferences
 from src.services.recommendation.content_layer import ScoredCandidate
 
 
@@ -222,10 +222,13 @@ class TOPSISLayer:
                 storage_penalty = 0.1
 
         # User speed priority adjustment
-        speed_priority = user_profile.content_preferences.get(
-            list(user_profile.primary_use_cases)[0] if user_profile.primary_use_cases else "default",
-            ContentPreferences()
-        ).generation_speed if hasattr(user_profile, 'content_preferences') else 3
+        # Get the first use case's content preferences, or default
+        speed_priority = 3  # Default middle priority
+        if user_profile.primary_use_cases and user_profile.content_preferences:
+            first_use_case = list(user_profile.primary_use_cases)[0]
+            content_prefs = user_profile.content_preferences.get(first_use_case)
+            if content_prefs is not None:
+                speed_priority = content_prefs.generation_speed
 
         # If user prioritizes speed, penalize slow models more
         if speed_priority >= 4:
@@ -461,7 +464,3 @@ class TOPSISLayer:
             self.weights["hardware_fit"] = 0.25
             self.weights["ecosystem_maturity"] = 0.15
             self.weights["approach_fit"] = 0.10
-
-
-# Import for type hints
-from src.schemas.recommendation import ContentPreferences

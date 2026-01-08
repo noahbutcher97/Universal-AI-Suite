@@ -34,7 +34,10 @@ The spec defines these key architectural decisions:
 ### Recommendation Engine (SPEC Section 6)
 The spec requires a **three-layer architecture**:
 - Layer 1: Constraint Satisfaction Programming (binary elimination)
-- Layer 2: Content-Based Filtering (cosine similarity)
+- Layer 2: Content-Based Filtering with **Modular Modality Architecture**:
+  - Modality-specific scorers (ImageScorer, VideoScorer, etc.)
+  - Cosine similarity per modality, not flat vector
+  - UseCaseDefinition composes required modalities for multi-modal workflows
 - Layer 3: TOPSIS Multi-Criteria Ranking (5 criteria: content_similarity, hardware_fit, speed_fit, ecosystem_maturity, approach_fit)
 - Resolution Cascade: quantization → cpu_offload → substitution → workflow → cloud
 
@@ -116,7 +119,21 @@ These decisions are documented in `docs/plan/PLAN_v3.md` and should not be relit
 | Model database | Separate YAML file | 100+ models would bloat spec |
 | Cloud APIs | Partner Nodes primary | Unified credits, native to ComfyUI 0.3.60+ |
 | Recommendation | 3-layer architecture | Research-validated approach |
+| Content Layer | Modular modality architecture | Multi-modal use cases, single responsibility |
 | Platform weights | 40% Mac, 40% Windows, 20% Linux | Target user distribution |
+
+## Decision Workflow for Architecture Changes
+
+**Before implementing any architecture/spec change**, follow this workflow:
+
+1. **Document Decision** → Add to `PLAN_v3.md` Section 1 (Decision Log)
+2. **Document Deprecations** → Add to `PLAN_v3.md` Section 7 (Deprecation Tracker)
+3. **Update Spec** → Modify `AI_UNIVERSAL_SUITE_SPEC_v3.md`
+4. **Update Plan** → Add tasks to `PLAN_v3.md` Section 2 (Task Tracker)
+5. **Update Agent Files** → `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`
+6. **Implement** → Follow Migration Protocol
+
+This ensures all documentation stays in sync with code changes.
 
 ---
 

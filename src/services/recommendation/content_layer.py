@@ -52,13 +52,15 @@ class ContentBasedLayer:
     """
 
     # Weights for different capability dimensions
+    # Aligned with ContentPreferences schema field names
     DIMENSION_WEIGHTS = {
         "photorealism": 1.0,
-        "artistic_quality": 1.0,
-        "speed": 0.8,
-        "text_rendering": 0.7,
-        "consistency": 0.6,
-        "motion_quality": 1.0,
+        "artistic_stylization": 1.0,
+        "generation_speed": 0.8,
+        "output_quality": 0.9,
+        "consistency": 0.7,
+        "editability": 0.6,
+        "motion_intensity": 1.0,
         "temporal_coherence": 0.9,
     }
 
@@ -137,31 +139,75 @@ class ContentBasedLayer:
         Build normalized user preference vector.
 
         Maps 1-5 scale preferences to 0.0-1.0 scores.
+        Aligned with ContentPreferences schema fields.
         """
-        return {
+        vector = {
+            # Core preferences (always present)
             "photorealism": (prefs.photorealism - 1) / 4.0,
-            "artistic_quality": (prefs.artistic_stylization - 1) / 4.0,
-            "speed": (prefs.generation_speed - 1) / 4.0,
+            "artistic_stylization": (prefs.artistic_stylization - 1) / 4.0,
+            "generation_speed": (prefs.generation_speed - 1) / 4.0,
+            "output_quality": (prefs.output_quality - 1) / 4.0,
             "consistency": (prefs.consistency - 1) / 4.0,
-            "motion_quality": ((prefs.motion_intensity or 3) - 1) / 4.0,
-            "temporal_coherence": ((prefs.temporal_coherence or 3) - 1) / 4.0,
+            "editability": (prefs.editability - 1) / 4.0,
         }
+
+        # Domain-specific preferences (video/animation)
+        # Only include if user has set them (non-None)
+        if prefs.motion_intensity is not None:
+            vector["motion_intensity"] = (prefs.motion_intensity - 1) / 4.0
+        if prefs.temporal_coherence is not None:
+            vector["temporal_coherence"] = (prefs.temporal_coherence - 1) / 4.0
+        if prefs.character_consistency is not None:
+            vector["character_consistency"] = (prefs.character_consistency - 1) / 4.0
+        if prefs.pose_control is not None:
+            vector["pose_control"] = (prefs.pose_control - 1) / 4.0
+
+        return vector
 
     def _build_model_vector(self, model: ModelEntry) -> Dict[str, float]:
         """
         Build model capability vector from model entry.
 
         Uses scores from models_database.yaml capabilities.scores.
+        Aligned with ContentPreferences schema fields.
         """
         scores = model.capabilities.scores
-        return {
+
+        # Build vector with aligned dimension names
+        vector = {
+            # Core capabilities
             "photorealism": scores.get("photorealism", 0.5),
-            "artistic_quality": scores.get("artistic_quality", 0.5),
-            "speed": scores.get("speed", 0.5),
+            "artistic_stylization": scores.get("artistic_stylization",
+                                               scores.get("artistic_quality", 0.5)),
+            "generation_speed": scores.get("generation_speed",
+                                           scores.get("speed", 0.5)),
+            "output_quality": scores.get("output_quality",
+                                         scores.get("output_fidelity", 0.5)),
             "consistency": scores.get("consistency", 0.5),
-            "motion_quality": scores.get("motion_quality", 0.0),
-            "temporal_coherence": scores.get("temporal_coherence", 0.0),
+            "editability": scores.get("editability", 0.0),
         }
+
+        # Domain-specific capabilities (video/animation)
+        # Only include if model has these capabilities (non-zero)
+        motion = scores.get("motion_intensity",
+                           scores.get("motion_quality",
+                                      scores.get("motion_dynamic", 0.0)))
+        if motion > 0:
+            vector["motion_intensity"] = motion
+
+        temporal = scores.get("temporal_coherence", 0.0)
+        if temporal > 0:
+            vector["temporal_coherence"] = temporal
+
+        char_consistency = scores.get("character_consistency", 0.0)
+        if char_consistency > 0:
+            vector["character_consistency"] = char_consistency
+
+        pose = scores.get("pose_control", 0.0)
+        if pose > 0:
+            vector["pose_control"] = pose
+
+        return vector
 
     def _cosine_similarity(
         self,

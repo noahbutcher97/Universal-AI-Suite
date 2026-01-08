@@ -1240,6 +1240,130 @@ class ConstraintSatisfactionLayer:
 
 ### 6.3 Layer 2: Content-Based Feature Matching
 
+Layer 2 scores candidates based on feature similarity to user needs using cosine similarity. It is cold-start immune (no user history required).
+
+#### 6.3.1 Modular Modality Architecture
+
+Use cases often span multiple modalities (e.g., character animation needs image + video). The Layer 2 architecture separates concerns by modality:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      MODALITY PREFERENCE SCHEMAS                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│  SharedQualityPrefs          │  Cross-cutting quality preferences       │
+│    - photorealism            │  (applies to all modalities)             │
+│    - artistic_stylization    │                                          │
+│    - generation_speed        │                                          │
+│    - output_quality          │                                          │
+│    - character_consistency   │                                          │
+├──────────────────────────────┼──────────────────────────────────────────┤
+│  ImageModalityPrefs          │  Image-specific preferences              │
+│    - editability             │                                          │
+│    - pose_control            │                                          │
+│    - holistic_edits          │                                          │
+│    - localized_edits         │                                          │
+│    - style_tags              │                                          │
+├──────────────────────────────┼──────────────────────────────────────────┤
+│  VideoModalityPrefs          │  Video-specific preferences              │
+│    - motion_intensity        │  (1=subtle, 5=dynamic)                   │
+│    - temporal_coherence      │                                          │
+│    - duration_preference     │                                          │
+├──────────────────────────────┼──────────────────────────────────────────┤
+│  AudioModalityPrefs          │  Audio-specific (future)                 │
+│  ThreeDModalityPrefs         │  3D-specific (future)                    │
+└──────────────────────────────┴──────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       USE CASE COMPOSITION                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│  UseCaseDefinition                                                      │
+│    - id: "character_animation"                                          │
+│    - name: "Character Animation Workflow"                               │
+│    - required_modalities: ["image", "video"]                            │
+│    - shared: SharedQualityPrefs(...)                                    │
+│    - image: ImageModalityPrefs(...) | None                              │
+│    - video: VideoModalityPrefs(...) | None                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      MODALITY SCORERS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  ContentBasedLayer                                                      │
+│    scorers: Dict[str, ModalityScorer] = {                               │
+│      "image": ImageScorer(),                                            │
+│      "video": VideoScorer(),                                            │
+│      "audio": AudioScorer(),  # future                                  │
+│    }                                                                    │
+│                                                                         │
+│    def score_for_use_case(candidates, use_case: UseCaseDefinition):     │
+│      results = {}                                                       │
+│      for modality in use_case.required_modalities:                      │
+│        scorer = self.scorers[modality]                                  │
+│        modality_prefs = getattr(use_case, modality)                     │
+│        results[modality] = scorer.score(candidates, modality_prefs,     │
+│                                         use_case.shared)                │
+│      return results                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Design Benefits**:
+- **Single Responsibility**: Each scorer only handles its modality's dimensions
+- **Open/Closed**: Add new modalities without modifying existing scorers
+- **Composable**: Use cases declare their modality requirements
+- **Testable**: Each modality scorer can be tested in isolation
+
+#### 6.3.2 Modality Scorer Interface
+
+```python
+from abc import ABC, abstractmethod
+
+class ModalityScorer(ABC):
+    """Base class for modality-specific scoring."""
+
+    # Dimensions this scorer evaluates
+    DIMENSIONS: List[str] = []
+
+    # Weights for each dimension
+    DIMENSION_WEIGHTS: Dict[str, float] = {}
+
+    @abstractmethod
+    def build_user_vector(
+        self,
+        modality_prefs: Any,
+        shared_prefs: SharedQualityPrefs
+    ) -> Dict[str, float]:
+        """Build user preference vector for this modality."""
+        pass
+
+    @abstractmethod
+    def build_model_vector(self, model: ModelEntry) -> Dict[str, float]:
+        """Build model capability vector for this modality."""
+        pass
+
+    def score(
+        self,
+        candidates: List[PassingCandidate],
+        modality_prefs: Any,
+        shared_prefs: SharedQualityPrefs
+    ) -> List[ScoredCandidate]:
+        """Score candidates for this modality."""
+        user_vector = self.build_user_vector(modality_prefs, shared_prefs)
+        scored = []
+        for candidate in candidates:
+            model_vector = self.build_model_vector(candidate.model)
+            similarity = self._cosine_similarity(user_vector, model_vector)
+            scored.append(ScoredCandidate(
+                passing_candidate=candidate,
+                similarity_score=similarity,
+                modality=self.__class__.__name__.replace("Scorer", "").lower()
+            ))
+        return scored
+```
+
+#### 6.3.3 Original Implementation (Flat Vector)
+
+The following shows the original flat-vector approach for reference. New implementations should use the modular architecture above.
+
 ```python
 class ContentBasedLayer:
     """
