@@ -178,6 +178,7 @@ These are non-negotiable technical constraints:
 4. **Async UI**: Long-running tasks in background threads
 5. **Type Hints**: Required on all function signatures
 6. **Spec Citations**: Reference spec sections in commit messages and comments
+7. **Commit Messages**: Never add co-author tags, AI tool attribution, or "Generated with" footers to commit messages unless explicitly requested by the user
 
 ---
 

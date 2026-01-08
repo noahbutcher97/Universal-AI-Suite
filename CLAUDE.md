@@ -183,6 +183,7 @@ src/
 4. **Spec Citations**: Reference in commits: `fix(hardware): Apple Silicon RAM per SPEC_v3 4.2`
 5. **Model Data**: Use `data/models_database.yaml`, NOT `resources.json`
 6. **Migration Protocol**: See `docs/MIGRATION_PROTOCOL.md` - don't break working app during refactor
+7. **Commit Messages**: Never add co-author tags, AI tool attribution, or "Generated with" footers to commit messages unless explicitly requested by the user
 
 ### Architecture Principles (see `docs/ARCHITECTURE_PRINCIPLES.md`)
 
