@@ -35,3 +35,7 @@ Thumbs.db
 
 # Claude Code local config
 .claude/*.local.md
+
+# Claude Code temp files
+tmpclaude-*
+temp_plan.txt
