@@ -32,6 +32,7 @@ from src.ui.wizard.components.model_comparison import ModelComparisonView
 from src.ui.wizard.components.progress_panel import ProgressPanel
 from src.ui.wizard.components.experience_survey import ExperienceSurvey
 from src.utils.logger import log
+from src.utils.performance_monitor import get_performance_monitor
 
 
 class SetupWizard(ctk.CTkToplevel):
@@ -707,6 +708,7 @@ class SetupWizard(ctk.CTkToplevel):
 
     def close_wizard(self):
         """Close wizard and trigger completion callback."""
+        get_performance_monitor().save_report()
         self.destroy()
         if self.on_complete_callback:
             self.on_complete_callback()

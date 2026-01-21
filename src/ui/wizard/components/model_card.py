@@ -13,6 +13,7 @@ from typing import Optional, Callable, List, Union
 from dataclasses import dataclass
 
 from src.schemas.recommendation import ModelCandidate, CloudRankedCandidate
+from src.utils.performance_monitor import measure_time
 
 
 def _format_size(size_gb: float) -> str:
@@ -98,6 +99,7 @@ class ModelCard(ctk.CTkFrame):
     - Overall match: How well model matches user's preferences
     """
 
+    @measure_time("ModelCard.__init__")
     def __init__(
         self,
         master,
@@ -113,6 +115,7 @@ class ModelCard(ctk.CTkFrame):
         self.is_recommended = is_recommended
         self.on_select = on_select
         self.expanded = False
+        self.expanded_frame = None
 
         # Extract common properties based on model type
         if is_cloud:
@@ -144,184 +147,152 @@ class ModelCard(ctk.CTkFrame):
             widget.destroy()
 
         self._build_compact_view()
-        self._build_expanded_view()
-
-        # Start with expanded view hidden
-        self.expanded_frame.pack_forget()
+        # Expanded view is now built lazily in _toggle_expand
 
     def _build_compact_view(self):
-        """Build the always-visible compact view."""
-        self.compact_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.compact_frame.pack(fill="x", padx=15, pady=12)
-        self.compact_frame.grid_columnconfigure(1, weight=1)
+        """Build the always-visible compact view (Flattened Layout)."""
+        self.grid_columnconfigure(1, weight=1)
 
-        # Row 0: Checkbox + Name + Badges
+        # 1. Checkbox (Row 0-1, Col 0)
         self.checkbox = ctk.CTkCheckBox(
-            self.compact_frame,
+            self,
             text="",
             variable=self.var_selected,
             command=self._on_toggle,
-            width=24
+            width=24,
+            height=24
         )
-        self.checkbox.grid(row=0, column=0, rowspan=2, padx=(0, 12))
+        self.checkbox.grid(row=0, column=0, rowspan=2, padx=(15, 10), pady=12, sticky="ns")
 
-        # Name and badges container
-        name_row = ctk.CTkFrame(self.compact_frame, fg_color="transparent")
-        name_row.grid(row=0, column=1, sticky="w")
-
-        ctk.CTkLabel(
-            name_row,
+        # 2. Name & Badges (Row 0, Col 1)
+        # We combine Name + Badges into a single frame to keep alignment, 
+        # OR we just make the name the label and badges separate.
+        # To strictly flatten, we can put Name in col 1, Badges in col 2? No, badges vary.
+        # Let's keep one frame for Name/Badges but make it very lightweight.
+        
+        # Actually, let's try strict grid on self.
+        # Name: (0, 1)
+        # Stats: (1, 1)
+        # Expand: (0-1, 2)
+        
+        self.name_label = ctk.CTkLabel(
+            self,
             text=self.display_name,
-            font=("Arial", 14, "bold")
-        ).pack(side="left")
+            font=("Arial", 14, "bold"),
+            anchor="w"
+        )
+        self.name_label.grid(row=0, column=1, sticky="w", pady=(12, 0))
 
-        # Dynamic badges based on scores
-        self._add_dynamic_badges(name_row)
+        # 3. Stats (Row 1, Col 1)
+        stats_text = self._get_stats_text()
+        self.stats_label = ctk.CTkLabel(
+            self,
+            text=stats_text,
+            font=("Arial", 11),
+            text_color="gray60",
+            anchor="w"
+        )
+        self.stats_label.grid(row=1, column=1, sticky="w", pady=(0, 12))
 
-        # Row 1: Quick stats
-        stats_row = ctk.CTkFrame(self.compact_frame, fg_color="transparent")
-        stats_row.grid(row=1, column=1, sticky="w", pady=(4, 0))
+        # 4. Badges (Row 0, Col 1 - Defer to next frame for speed)
+        self.after(1, lambda: self._add_badges_to_grid(row=0, column=1))
 
-        if self.is_cloud:
-            self._add_cloud_stats(stats_row)
-        else:
-            self._add_local_stats(stats_row)
-
-        # Expand button
+        # 5. Expand Button (Row 0-1, Col 2)
         self.expand_btn = ctk.CTkButton(
-            self.compact_frame,
-            text="▼ More",
-            width=70,
+            self,
+            text="▼",
+            width=30,
             height=28,
             fg_color="transparent",
             hover_color="gray25",
             text_color="gray60",
             command=self._toggle_expand
         )
-        self.expand_btn.grid(row=0, column=2, rowspan=2, padx=(10, 0))
+        self.expand_btn.grid(row=0, column=2, rowspan=2, padx=(10, 15), pady=12)
+
+    def _add_badges_to_grid(self, row, column):
+        """Add badges to the grid layout, offset from name."""
+        # This is tricky without a nested frame. 
+        # Let's use a nested frame but ensure it's the ONLY one.
+        # Actually, let's put badges in the same cell as Name but use a Frame container for THAT cell.
+        # Wait, I promised to flatten.
+        # If I put Name and Badges in one Frame, that is 1 Frame + N Widgets.
+        # Previous: CompactFrame -> NameRow -> [Name, Badge, Badge]
+        # Current: ModelCard -> HeaderFrame -> [Name, Badge, Badge]
+        # It removes one layer (CompactFrame).
+        
+        # Let's try simpler: Put Name in grid. Put Badges in a Frame that is placed via place() or grid() next to it?
+        # No, dynamic width name makes that hard.
+        
+        # Compromise: HeaderFrame is necessary for horizontal layout of Name + Badges.
+        # But we remove StatsFrame and CompactFrame.
+        
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.grid(row=0, column=1, sticky="w", pady=(12, 0))
+        
+        ctk.CTkLabel(
+            header_frame,
+            text=self.display_name,
+            font=("Arial", 14, "bold")
+        ).pack(side="left")
+        
+        self._add_dynamic_badges(header_frame)
+
+    def _get_stats_text(self) -> str:
+        """Get combined stats text."""
+        parts = []
+        
+        if self.is_cloud:
+            model_cloud = self.model
+            parts.append(f"${model_cloud.estimated_cost_per_use:.3f}/gen")
+            if model_cloud.estimated_monthly_cost > 0:
+                parts.append(f"~${model_cloud.estimated_monthly_cost:.0f}/mo")
+        else:
+            model_local = self.model
+            reqs = getattr(model_local, 'requirements', {})
+            size_gb = reqs.get('size_gb', 0)
+            vram_min = reqs.get('vram_min_gb', 0) or (reqs.get('vram_min_mb', 0) / 1024)
+            
+            if size_gb > 0:
+                parts.append(_format_size(size_gb))
+            if vram_min > 0:
+                parts.append(f"≥{vram_min:.0f}GB VRAM")
+                
+        parts.append(f"Match: {self.overall_score:.0%}")
+        return "  •  ".join(parts)
 
     def _add_dynamic_badges(self, parent):
         """Add badges based on recommendation scores."""
-        # Recommended badge (if applicable)
+        # Recommended badge
         if self.is_recommended:
             match_badge = _get_match_badge(self.overall_score)
-            ctk.CTkLabel(
-                parent,
-                text=match_badge.text,
-                font=("Arial", 10, "bold"),
-                text_color=match_badge.text_color,
-                fg_color=match_badge.fg_color,
-                corner_radius=4,
-                padx=6,
-                pady=2
-            ).pack(side="left", padx=(10, 0))
+            self._create_badge(parent, match_badge)
 
-        # Cloud vs Local indicator
+        # Cloud/Local + Cost/Fit
         if self.is_cloud:
-            provider_display = self.provider.replace('_', ' ').title()
-            ctk.CTkLabel(
-                parent,
-                text=f"☁ {provider_display}",
-                font=("Arial", 10),
-                text_color="gray80",
-                fg_color="#2d4a6d",
-                corner_radius=4,
-                padx=6,
-                pady=2
-            ).pack(side="left", padx=(10, 0))
-
-            # Cost badge for cloud
+            self._create_badge(parent, FitBadge(f"☁ {self.provider.title()}", "#2d4a6d", "gray80"))
             cost_badge = _get_cost_badge(self.cost_score, True)
             if cost_badge:
-                ctk.CTkLabel(
-                    parent,
-                    text=cost_badge.text,
-                    font=("Arial", 10),
-                    text_color=cost_badge.text_color,
-                    fg_color=cost_badge.fg_color,
-                    corner_radius=4,
-                    padx=6,
-                    pady=2
-                ).pack(side="left", padx=(6, 0))
+                self._create_badge(parent, cost_badge)
         else:
-            # Hardware fit badge for local models
             hw_badge = _get_hardware_fit_badge(self.hardware_fit_score)
-            ctk.CTkLabel(
-                parent,
-                text=hw_badge.text,
-                font=("Arial", 10),
-                text_color=hw_badge.text_color,
-                fg_color=hw_badge.fg_color,
-                corner_radius=4,
-                padx=6,
-                pady=2
-            ).pack(side="left", padx=(10, 0))
+            self._create_badge(parent, hw_badge)
 
-    def _add_cloud_stats(self, parent):
-        """Add statistics for cloud models."""
-        model_cloud = self.model
-
-        # Cost per generation
-        cost_text = f"${model_cloud.estimated_cost_per_use:.3f}/gen"
+    def _create_badge(self, parent, badge: FitBadge):
+        """Create a single badge widget."""
         ctk.CTkLabel(
             parent,
-            text=cost_text,
-            font=("Arial", 11),
-            text_color="gray60"
-        ).pack(side="left", padx=(0, 15))
+            text=badge.text,
+            font=("Arial", 10, "bold"),
+            text_color=badge.text_color,
+            fg_color=badge.fg_color,
+            corner_radius=4,
+            padx=6,
+            pady=2
+        ).pack(side="left", padx=(10, 0))
 
-        # Monthly estimate if available
-        if model_cloud.estimated_monthly_cost > 0:
-            monthly_text = f"~${model_cloud.estimated_monthly_cost:.0f}/mo"
-            ctk.CTkLabel(
-                parent,
-                text=monthly_text,
-                font=("Arial", 11),
-                text_color="gray60"
-            ).pack(side="left", padx=(0, 15))
-
-        # Match score
-        score_text = f"Match: {self.overall_score:.0%}"
-        ctk.CTkLabel(
-            parent,
-            text=score_text,
-            font=("Arial", 11),
-            text_color="gray60"
-        ).pack(side="left")
-
-    def _add_local_stats(self, parent):
-        """Add statistics for local models."""
-        model_local = self.model
-        reqs = getattr(model_local, 'requirements', {})
-        size_gb = reqs.get('size_gb', 0)
-        # Support both vram_min_mb (new) and vram_min_gb (legacy)
-        vram_min_mb = reqs.get('vram_min_mb', 0)
-        vram_min_gb = reqs.get('vram_min_gb', vram_min_mb / 1024 if vram_min_mb else 0)
-
-        if size_gb > 0:
-            ctk.CTkLabel(
-                parent,
-                text=_format_size(size_gb),
-                font=("Arial", 11),
-                text_color="gray60"
-            ).pack(side="left", padx=(0, 15))
-
-        if vram_min_gb > 0:
-            ctk.CTkLabel(
-                parent,
-                text=f"≥{vram_min_gb:.0f}GB VRAM",
-                font=("Arial", 11),
-                text_color="gray60"
-            ).pack(side="left", padx=(0, 15))
-
-        # Match score
-        score_text = f"Match: {self.overall_score:.0%}"
-        ctk.CTkLabel(
-            parent,
-            text=score_text,
-            font=("Arial", 11),
-            text_color="gray60"
-        ).pack(side="left")
+    def _add_cloud_stats(self, parent): pass # Deprecated
+    def _add_local_stats(self, parent): pass # Deprecated
 
     def _build_expanded_view(self):
         """Build the collapsible expanded view."""
@@ -500,11 +471,14 @@ class ModelCard(ctk.CTkFrame):
         self.expanded = not self.expanded
 
         if self.expanded:
-            self.expanded_frame.pack(fill="x")
-            self.expand_btn.configure(text="▲ Less")
+            if self.expanded_frame is None:
+                self._build_expanded_view()
+            self.expanded_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 12))
+            self.expand_btn.configure(text="▲")
         else:
-            self.expanded_frame.pack_forget()
-            self.expand_btn.configure(text="▼ More")
+            if self.expanded_frame:
+                self.expanded_frame.grid_forget()
+            self.expand_btn.configure(text="▼")
 
     def _on_toggle(self):
         """Handle selection toggle."""

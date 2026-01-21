@@ -18,6 +18,7 @@ from src.schemas.recommendation import (
     RecommendationResults
 )
 from src.ui.wizard.components.model_card import ModelCard
+from src.utils.performance_monitor import measure_time
 
 
 class ComparisonLens(Enum):
@@ -279,6 +280,15 @@ class ModelComparisonView(ctk.CTkFrame):
 
         # Card references for current view
         self.model_cards: Dict[str, ModelCard] = {}
+        
+        # Pagination state
+        self.PAGE_SIZE = 10
+        self.visible_count = self.PAGE_SIZE
+        
+        # Async Rendering State
+        self.render_job = None
+        self.models_to_render = []
+        self.render_index = 0
 
         # Build UI
         self._build_header()
@@ -384,37 +394,49 @@ class ModelComparisonView(ctk.CTkFrame):
         # Scrollable frame for cards
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent", label_text="")
         self.scroll_frame.pack(fill="both", expand=True)
+        
+        # Internal state for rendering
+        self.current_models = []
+        self.rendered_count = 0
+        self.show_more_btn = None
 
         # Initial render
-        self._render_cards()
+        self._refresh_view()
 
-    def _render_cards(self):
-        """Render model cards based on current state."""
-        # Clear existing cards (but NOT selection state)
-        for widget in self.scroll_frame.winfo_children():
-            widget.destroy()
-        self.model_cards.clear()
-
-        # Get models for current modality and pathway
+    @measure_time("ModelComparisonView._refresh_view")
+    def _refresh_view(self):
+        """Full reset and render of the view (Tab Switch)."""
+        # Cancel any pending render job
+        if self.render_job:
+            self.after_cancel(self.render_job)
+            self.render_job = None
+        
+        # Reset State
+        self.rendered_count = 0
+        self.visible_count = self.PAGE_SIZE
+        
+        # 1. Calculate Full List
         current_pathway = self.pathway_toggle.get_current_pathway()
-
         if current_pathway == "local":
-            models = self.local_by_modality.get(self.current_modality, [])
-            models = self._sort_local_models(models)
-            is_cloud = False
-            selected_ids = self.selected_local_ids
+            raw_models = self.local_by_modality.get(self.current_modality, [])
+            self.current_models = self._sort_local_models(raw_models)
         else:
-            models = self.cloud_by_modality.get(self.current_modality, [])
-            models = self._sort_cloud_models(models)
-            is_cloud = True
-            selected_ids = self.selected_cloud_ids
+            raw_models = self.cloud_by_modality.get(self.current_modality, [])
+            self.current_models = self._sort_cloud_models(raw_models)
 
-        # Update pathway toggle counts for current modality
+        # Update Counts
         local_count = len(self.local_by_modality.get(self.current_modality, []))
         cloud_count = len(self.cloud_by_modality.get(self.current_modality, []))
         self.pathway_toggle.update_counts(local_count, cloud_count)
 
-        if not models:
+        # 2. Clear UI
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+        self.model_cards.clear()
+        self.show_more_btn = None
+
+        # 3. Handle Empty
+        if not self.current_models:
             config = MODALITY_CONFIG.get(self.current_modality, {"name": self.current_modality})
             ctk.CTkLabel(
                 self.scroll_frame,
@@ -424,12 +446,45 @@ class ModelComparisonView(ctk.CTkFrame):
             ).pack(pady=50)
             return
 
-        # Create cards
-        for i, model in enumerate(models):
-            model_id = model.model_id if is_cloud else model.id
-            is_recommended = i == 0
-            is_selected = model_id in selected_ids
+        # 4. Start Render
+        self._schedule_batch_render()
 
+    def _load_more(self):
+        """Load next page (Append)."""
+        if self.show_more_btn:
+            self.show_more_btn.destroy()
+            self.show_more_btn = None
+            
+        self.visible_count += self.PAGE_SIZE
+        self._schedule_batch_render()
+
+    def _schedule_batch_render(self):
+        """Start the async render loop if items needed."""
+        if self.render_job:
+            self.after_cancel(self.render_job)
+            
+        self.render_job = self.after(1, self._render_next_batch)
+
+    @measure_time("ModelComparisonView._render_next_batch")
+    def _render_next_batch(self):
+        """Render a small batch of cards (Incremental)."""
+        BATCH_SIZE = 2 # Reduced to meet 30ms threshold (approx 10ms per card)
+        
+        current_pathway = self.pathway_toggle.get_current_pathway()
+        is_cloud = (current_pathway != "local")
+        selected_ids = self.selected_cloud_ids if is_cloud else self.selected_local_ids
+        
+        # Determine range to render
+        target_count = min(self.visible_count, len(self.current_models))
+        
+        count = 0
+        while self.rendered_count < target_count and count < BATCH_SIZE:
+            model = self.current_models[self.rendered_count]
+            is_recommended = (self.rendered_count == 0)
+            
+            model_id = model.model_id if is_cloud else model.id
+            is_selected = model_id in selected_ids
+            
             card = ModelCard(
                 self.scroll_frame,
                 model=model,
@@ -438,12 +493,37 @@ class ModelComparisonView(ctk.CTkFrame):
                 on_select=self._on_model_select
             )
 
-            # Restore selection state
             if is_selected:
                 card.set_selected(True)
 
             card.pack(fill="x", pady=6)
             self.model_cards[model_id] = card
+            
+            self.rendered_count += 1
+            count += 1
+            
+        # Continue or Finish
+        if self.rendered_count < target_count:
+            self.render_job = self.after(5, self._render_next_batch)
+        else:
+            self.render_job = None
+            self._render_footer()
+
+    def _render_footer(self):
+        """Render the 'Show More' button if needed."""
+        if len(self.current_models) > self.rendered_count:
+            remaining = len(self.current_models) - self.rendered_count
+            self.show_more_btn = ctk.CTkButton(
+                self.scroll_frame,
+                text=f"Show More ({remaining})",
+                fg_color="transparent",
+                border_width=1,
+                border_color="gray40",
+                text_color="gray70",
+                hover_color="gray20",
+                command=self._load_more
+            )
+            self.show_more_btn.pack(pady=20)
 
     def _sort_local_models(self, models: List[ModelCandidate]) -> List[ModelCandidate]:
         """Sort local models based on current lens."""
@@ -487,17 +567,17 @@ class ModelComparisonView(ctk.CTkFrame):
     def _on_modality_change(self, modality: str):
         """Handle modality tab change."""
         self.current_modality = modality
-        self._render_cards()
+        self._refresh_view()
 
     def _on_lens_change(self, lens: ComparisonLens):
         """Handle lens tab change."""
         self.current_lens = lens
-        self._render_cards()
+        self._refresh_view()
 
     def _on_pathway_change(self, pathway: str):
         """Handle pathway toggle."""
         self.current_pathway = pathway
-        self._render_cards()
+        self._refresh_view()
 
     def _on_model_select(self, model_id: str, selected: bool):
         """Handle model selection change - update persistent state."""
