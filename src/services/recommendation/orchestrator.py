@@ -24,6 +24,7 @@ from src.services.recommendation.constraint_layer import (
 )
 from src.services.recommendation.content_layer import ContentBasedLayer, ScoredCandidate
 from src.services.recommendation.topsis_layer import TOPSISLayer, RankedCandidate
+from src.services.hardware_snapshot_service import HardwareSnapshotService
 from src.utils.logger import log
 
 class RecommendationOrchestrator:
@@ -42,6 +43,7 @@ class RecommendationOrchestrator:
         self.constraint_layer = ConstraintSatisfactionLayer(self.model_db)
         self.content_layer = ContentBasedLayer()
         self.topsis_layer = TOPSISLayer()
+        self.snapshot_service = HardwareSnapshotService()
 
     def recommend_models(
         self,
@@ -58,6 +60,12 @@ class RecommendationOrchestrator:
         """
         log.info(f"Orchestrating recommendations for use_case: {use_case}")
         
+        # 0. Take Hardware Snapshot (Task DB-02)
+        try:
+            self.snapshot_service.take_snapshot(hardware)
+        except Exception as e:
+            log.warning(f"Failed to capture hardware snapshot: {e}")
+
         # 1. Layer 1: Filter by Hard Constraints (CSP)
         passing, rejected = self.constraint_layer.filter(
             hardware=hardware,
