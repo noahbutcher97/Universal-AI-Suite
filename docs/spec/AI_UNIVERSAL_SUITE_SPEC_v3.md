@@ -1245,9 +1245,18 @@ Layer 2 scores candidates based on feature similarity to user needs using cosine
 
 #### 6.3.1 Modular Modality Architecture
 
-Use cases often span multiple modalities (e.g., character animation needs image + video). The Layer 2 architecture separates concerns by modality:
+Use cases often span multiple modalities (e.g., character animation needs image + video). The Layer 2 architecture separates concerns by modality using the `UseCaseDefinition` schema:
 
-```
+1. **Modality Preferences**: Independent dataclasses for Image, Video, Audio, and 3D.
+2. **UseCaseDefinition**: Composes required modalities and shared quality factors.
+3. **Modality Scorers**: Specialized classes (e.g., `ImageScorer`, `VideoScorer`) that compute similarity vectors for their specific domain.
+
+#### 6.3.2 Scoring Process
+
+The `ContentBasedLayer` orchestrates the scoring by:
+1. Identifying required modalities from the use case.
+2. Generating similarity scores for each candidate per-modality.
+3. Aggregating scores via weighted average based on modality importance.
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      MODALITY PREFERENCE SCHEMAS                        │
 ├─────────────────────────────────────────────────────────────────────────┤

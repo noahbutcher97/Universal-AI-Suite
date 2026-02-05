@@ -71,7 +71,7 @@ class SystemService:
             return None
 
     @staticmethod
-    def get_disk_free_gb(path: str = ".") -> Optional[int]:
+    def get_disk_free_gb(path: str = ".") -> Optional[float]:
         """
         Returns free disk space at path in GB.
 
@@ -81,13 +81,41 @@ class SystemService:
         """
         try:
             total, used, free = shutil.disk_usage(os.path.abspath(path))
-            return int(free / (1024**3))
+            return free / (1024**3)
         except FileNotFoundError:
             log.error(f"Path not found for disk check: {path}")
             return None
         except Exception as e:
             log.error(f"Disk space detection failed: {e}")
             return None
+
+    @staticmethod
+    def get_required_headroom_gb() -> float:
+        """
+        Calculate recommended storage headroom to maintain OS stability.
+
+        Formula: (System_RAM * 0.5) + 10GB Safety Buffer
+        - System_RAM * 0.5 accounts for potential large swap file / paging needs
+        - 10GB buffer for OS updates, hibernation file, and temp files
+
+        Per Task SYS-05.
+        """
+        ram_gb = SystemService.get_system_ram_gb() or 16.0
+        return (ram_gb * 0.5) + 10.0
+
+    @staticmethod
+    def check_storage_headroom(required_gb: float, path: str = ".") -> bool:
+        """
+        Check if an installation can proceed while maintaining recommended headroom.
+
+        Returns: True if there is enough space + headroom.
+        """
+        free_gb = SystemService.get_disk_free_gb(path)
+        if free_gb is None:
+            return False
+
+        headroom = SystemService.get_required_headroom_gb()
+        return (free_gb - headroom) >= required_gb
 
     @staticmethod
     def detect_form_factor() -> str:

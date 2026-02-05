@@ -1,0 +1,24 @@
+
+local_models:
+  image_generation:
+    test_flux:
+      id: "test_flux"
+      name: "Test Flux"
+      family: "flux"
+      category: "image_generation"
+      commercial_use: true
+      variants:
+        - id: "fp16"
+          precision: "fp16"
+          vram_min_mb: 12000
+          vram_recommended_mb: 16000
+          download_size_gb: 10.0
+          platform_support:
+            windows_nvidia: {supported: true}
+        - id: "fp8"
+          precision: "fp8"
+          vram_min_mb: 8000
+          vram_recommended_mb: 10000
+          download_size_gb: 5.0
+          platform_support:
+            windows_nvidia: {supported: true, min_compute_capability: 8.9}

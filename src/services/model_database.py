@@ -15,6 +15,11 @@ import yaml
 from src.utils.logger import log
 
 
+class ModelDatabaseError(Exception):
+    """Base exception for model database errors."""
+    pass
+
+
 # =============================================================================
 # Data Classes for YAML Schema
 # =============================================================================
@@ -130,6 +135,8 @@ class ModelEntry:
     release_date: Optional[str] = None
     license: Optional[str] = None
     commercial_use: bool = True
+    description: Optional[str] = None
+    repository_url: Optional[str] = None
 
     architecture: Dict[str, Any] = field(default_factory=dict)
     variants: List[ModelVariant] = field(default_factory=list)
@@ -441,6 +448,8 @@ class ModelDatabase:
             release_date=data.get("release_date"),
             license=data.get("license"),
             commercial_use=data.get("commercial_use", True),
+            description=data.get("description"),
+            repository_url=data.get("repository") or data.get("repository_url"),
             architecture=data.get("architecture", {}),
             variants=variants,
             capabilities=capabilities,
@@ -823,3 +832,77 @@ def reload_model_database() -> ModelDatabase:
     _default_database.load()
 
     return _default_database
+
+
+class SQLiteModelDatabase:
+    """
+    Relational implementation of the Model Database using SQLite.
+    Optimized for Task DB-01.
+    """
+    def __init__(self, db_manager=None):
+        from src.services.database.engine import db_manager as default_manager
+        from src.services.database.models import Model as DBModel, ModelVariant as DBModelVariant
+        self.db_manager = db_manager or default_manager
+        self.DBModel = DBModel
+        self.DBModelVariant = DBModelVariant
+
+    def get_compatible_models(
+        self,
+        platform: str,
+        vram_mb: int,
+        categories: Optional[List[str]] = None,
+        capabilities: Optional[List[str]] = None,
+        compute_capability: Optional[float] = None,
+        commercial_only: bool = False,
+    ) -> List[tuple[Any, Any]]:
+        """
+        Relational implementation of model selection using indexed SQL queries.
+        """
+        session = self.db_manager.get_session()
+        try:
+            # Base query joining Models and Variants
+            query = session.query(self.DBModel, self.DBModelVariant).join(
+                self.DBModelVariant, self.DBModel.id == self.DBModelVariant.model_id
+            )
+
+            # 1. Hard Constraints (Layer 1 - CSP equivalent in SQL)
+            query = query.filter(self.DBModelVariant.vram_min_mb <= vram_mb)
+            
+            # 2. Category Filter
+            if categories:
+                query = query.filter(self.DBModel.category.in_(categories))
+
+            # 3. Commercial Filter
+            if commercial_only:
+                query = query.filter(self.DBModel.commercial_use == True)
+
+            # Execute and post-process for complex logic (JSON parsing)
+            raw_results = query.all()
+            log.debug(f"SQL query returned {len(raw_results)} raw rows.")
+            
+            # Group by Model to pick best variant
+            model_best_variant = {}
+            
+            for model_row, variant_row in raw_results:
+                # Platform compatibility check (JSON logic)
+                ps = variant_row.platform_support.get(platform, {})
+                if not ps.get("supported"):
+                    continue
+                
+                # Compute capability check
+                min_cc = ps.get("cc")
+                if min_cc and (compute_capability is None or compute_capability < min_cc):
+                    continue
+
+                # Best variant selection (Highest quality retention)
+                if model_row.id not in model_best_variant:
+                    model_best_variant[model_row.id] = (model_row, variant_row)
+                else:
+                    existing_variant = model_best_variant[model_row.id][1]
+                    if variant_row.quality_retention_percent > existing_variant.quality_retention_percent:
+                        model_best_variant[model_row.id] = (model_row, variant_row)
+
+            return list(model_best_variant.values())
+
+        finally:
+            session.close()

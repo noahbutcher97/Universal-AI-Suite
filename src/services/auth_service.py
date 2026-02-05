@@ -5,9 +5,84 @@ import urllib.parse
 import threading
 import requests
 import time
-from typing import Optional, Callable
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional, Callable, Dict
 from src.utils.logger import log
 from src.config.manager import config_manager
+
+class AgentAuthService:
+    """
+    Manages local API authentication using Bearer Tokens.
+    Ensures secure cross-process communication between Desktop Agent and Mobile/Web.
+    """
+    
+    TOKEN_EXPIRY_DAYS = 7
+    
+    def __init__(self):
+        self._active_tokens: Dict[str, datetime] = {}
+        self._load_persisted_tokens()
+
+    def generate_agent_token(self, label: str = "default_agent") -> str:
+        """
+        Generate a new secure Bearer token.
+        """
+        token = f"as_{secrets.token_urlsafe(32)}"
+        expiry = datetime.utcnow() + timedelta(days=self.TOKEN_EXPIRY_DAYS)
+        
+        self._active_tokens[token] = expiry
+        self._persist_token(token, expiry, label)
+        
+        log.info(f"Generated new API token for: {label}")
+        return token
+
+    def verify_token(self, token: str) -> bool:
+        """
+        Verify if a token is valid and not expired.
+        """
+        if not token:
+            return False
+            
+        expiry = self._active_tokens.get(token)
+        if not expiry:
+            return False
+            
+        if datetime.utcnow() > expiry:
+            # Token expired
+            del self._active_tokens[token]
+            self._remove_persisted_token(token)
+            return False
+            
+        return True
+
+    def _load_persisted_tokens(self):
+        """Load tokens from secure config manager."""
+        persisted = config_manager.get("auth.api_tokens", {})
+        for token, data in persisted.items():
+            try:
+                expiry = datetime.fromisoformat(data["expiry"])
+                if datetime.utcnow() < expiry:
+                    self._active_tokens[token] = expiry
+            except (ValueError, KeyError, TypeError):
+                continue
+
+    def _persist_token(self, token: str, expiry: datetime, label: str):
+        """Store token metadata in config."""
+        tokens = config_manager.get("auth.api_tokens", {})
+        tokens[token] = {
+            "expiry": expiry.isoformat(),
+            "label": label,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        config_manager.set("auth.api_tokens", tokens)
+
+    def _remove_persisted_token(self, token: str):
+        """Remove token from config."""
+        tokens = config_manager.get("auth.api_tokens", {})
+        if token in tokens:
+            del tokens[token]
+            config_manager.set("auth.api_tokens", tokens)
+
 
 # Hugging Face OAuth Endpoints
 HF_AUTH_URL = "https://huggingface.co/oauth/authorize"

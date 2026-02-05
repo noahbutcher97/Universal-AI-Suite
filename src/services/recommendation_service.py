@@ -56,14 +56,9 @@ class RecommendationService:
         # LEGACY: To be removed once _run_local_pipeline is refactored
         self.scoring_service = ScoringService(resources)
         
-        # MODERN: 3-layer architecture components
-        from src.services.recommendation.constraint_layer import ConstraintSatisfactionLayer
-        from src.services.recommendation.content_layer import ContentBasedLayer
-        from src.services.recommendation.topsis_layer import TOPSISLayer
-        
-        self.constraint_layer = ConstraintSatisfactionLayer(self.model_db)
-        self.content_layer = ContentBasedLayer()
-        self.topsis_layer = TOPSISLayer()
+        # MODERN: Orchestration Facade (Task PAT-01)
+        from src.services.recommendation.orchestrator import RecommendationOrchestrator
+        self.orchestrator = RecommendationOrchestrator(model_db=self.model_db)
         
         self.cloud_layer = CloudRecommendationLayer(model_db=self.model_db)
 
@@ -196,21 +191,51 @@ class RecommendationService:
         Returns:
             List of ModelCandidate sorted by score
         """
-        # Generate candidates from local models
-        candidates = self._generate_model_candidates(env, categories)
+        # 1. Prepare modern HardwareProfile from EnvironmentReport
+        # (This transformation logic will eventually move to PAT-04 Adapter)
+        from src.services.hardware import detect_hardware
+        try:
+            full_hardware = detect_hardware()
+        except Exception:
+            # Fallback to normalized constraints if full detection fails during transition
+            from src.schemas.hardware import HardwareProfile, PlatformType
+            full_hardware = HardwareProfile(
+                gpu_vendor=env.gpu_vendor,
+                gpu_name=env.gpu_name,
+                vram_gb=env.vram_gb,
+                platform=env.os_name # Simplified
+            )
 
-        if not candidates:
-            return []
-
-        # Score candidates
-        scored = self.scoring_service.score_model_candidates(
-            candidates, user_profile, hardware
+        # 2. Execute modern 3-layer orchestration
+        # We use 'full_stack' as a default use_case key for the internal logic
+        ranked, rejected = self.orchestrator.recommend_models(
+            hardware=full_hardware,
+            user_profile=user_profile,
+            use_case="full_stack",
+            categories=categories
         )
 
-        # Filter out rejected candidates
-        valid = [c for c in scored if c.composite_score > 0]
+        if not ranked:
+            return []
 
-        return valid
+        # 3. Transform RankedCandidate -> Legacy ModelCandidate (Compatibility Layer)
+        legacy_candidates = []
+        for r in ranked:
+            scored_cand = r.scored_candidate
+            passing_cand = scored_cand.passing_candidate
+            
+            # Map modern scores to legacy composite_score
+            legacy_cand = self._model_to_candidate(
+                passing_cand.model, 
+                passing_cand.variant, 
+                full_hardware.platform
+            )
+            legacy_cand.composite_score = r.closeness_coefficient
+            legacy_cand.reasoning = [r.explanation]
+            
+            legacy_candidates.append(legacy_cand)
+
+        return legacy_candidates
 
     def _generate_storage_warnings(
         self,

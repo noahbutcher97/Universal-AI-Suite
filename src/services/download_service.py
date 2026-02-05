@@ -11,7 +11,7 @@ import requests
 from pathlib import Path
 from typing import Optional, Callable, List
 from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from src.utils.logger import log
 from src.config.manager import config_manager
 
@@ -50,13 +50,29 @@ class DownloadResult:
     bytes_downloaded: int = 0
 
 
+def _verify_hash_worker(file_path: str, expected_hash: str) -> bool:
+    """
+    Standalone worker function for multiprocess hash verification.
+    """
+    sha256 = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for block in iter(lambda: f.read(8192), b""):
+                sha256.update(block)
+
+        actual_hash = sha256.hexdigest().lower()
+        return actual_hash == expected_hash.lower()
+    except Exception:
+        return False
+
+
 class DownloadService:
     """
     Handles file downloads with progress tracking, retry logic, and validation.
 
     Features:
     - Exponential backoff retry (3 attempts by default)
-    - SHA256 hash verification
+    - Multiprocess SHA256 hash verification (Bypasses GIL)
     - Resume support via Range headers
     - Progress callbacks
     - Concurrent download queue
@@ -213,7 +229,7 @@ class DownloadService:
     @staticmethod
     def verify_hash(file_path: str, expected_hash: str) -> bool:
         """
-        Verify file SHA256 hash.
+        Verify file SHA256 hash using a separate process to bypass GIL.
 
         Args:
             file_path: Path to file to verify
@@ -226,28 +242,16 @@ class DownloadService:
             log.error(f"Cannot verify hash: file not found: {file_path}")
             return False
 
-        sha256 = hashlib.sha256()
+        log.debug(f"Verifying hash for {file_path} (Multiprocess)...")
+        
         try:
-            with open(file_path, "rb") as f:
-                for block in iter(lambda: f.read(8192), b""):
-                    sha256.update(block)
-
-            actual_hash = sha256.hexdigest().lower()
-            expected_lower = expected_hash.lower()
-
-            if actual_hash == expected_lower:
-                log.debug(f"Hash verified: {file_path}")
-                return True
-            else:
-                log.warning(
-                    f"Hash mismatch for {file_path}: "
-                    f"expected {expected_lower}, got {actual_hash}"
-                )
-                return False
-
-        except OSError as e:
-            log.error(f"Error reading file for hash verification: {e}")
-            return False
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_verify_hash_worker, file_path, expected_hash)
+                return future.result(timeout=300) # 30s timeout for large files
+        except Exception as e:
+            log.error(f"Multiprocess hash verification failed: {e}")
+            # Fallback to local check if multiprocess fails (rare)
+            return _verify_hash_worker(file_path, expected_hash)
 
     @staticmethod
     def get_file_size(url: str, timeout: int = 10) -> Optional[int]:

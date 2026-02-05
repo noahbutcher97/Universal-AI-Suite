@@ -254,6 +254,24 @@ class ConstraintSatisfactionLayer:
         if variants:
             # Return best compatible variant
             best = variants[0]
+
+            # =================================================================
+            # Check 4: Storage space with headroom
+            # Per Task SYS-05
+            # =================================================================
+            if not self._check_storage_constraint(best, hardware):
+                return RejectedCandidate(
+                    model_id=model.id,
+                    model_name=model.name,
+                    reason=RejectionReason.STORAGE_INSUFFICIENT,
+                    details=(
+                        f"Requires {best.download_size_gb:.1f}GB + OS headroom, "
+                        f"only {hardware.storage.free_gb:.1f}GB free"
+                    ),
+                    suggestion="Free up disk space or choose a cloud-based alternative",
+                    model=model,
+                )
+
             execution_mode = "native"
 
             # Check if this is a quantized variant
@@ -536,10 +554,18 @@ class ConstraintSatisfactionLayer:
     def _check_storage_constraint(
         self,
         variant: ModelVariant,
-        free_storage_gb: float,
+        hardware: HardwareProfile,
     ) -> bool:
-        """Check storage space."""
-        return variant.download_size_gb <= free_storage_gb
+        """
+        Check storage space using dynamic headroom.
+        Per Task SYS-05.
+        """
+        if hardware.storage is None:
+            return True
+
+        from src.services.system_service import SystemService
+        path = hardware.storage.path or "."
+        return SystemService.check_storage_headroom(variant.download_size_gb, path)
 
     def _can_offload_to_cpu(
         self,
