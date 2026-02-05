@@ -56,15 +56,16 @@ class RecommendationService:
         # LEGACY: To be removed once _run_local_pipeline is refactored
         self.scoring_service = ScoringService(resources)
         
-                # MODERN: Orchestration Facade (Task PAT-01)
-                from src.services.recommendation.orchestrator import RecommendationOrchestrator
-                from src.services.recommendation.manifest_orchestrator import ManifestOrchestrator
-                
-                self.orchestrator = RecommendationOrchestrator(model_db=self.model_db)
-                self.manifest_orchestrator = ManifestOrchestrator(model_db=self.model_db)
-                
-                self.cloud_layer = CloudRecommendationLayer(model_db=self.model_db)
-            def generate_recommendations(
+        # MODERN: Orchestration Facade (Task PAT-01)
+        from src.services.recommendation.orchestrator import RecommendationOrchestrator
+        from src.services.recommendation.manifest_orchestrator import ManifestOrchestrator
+        
+        self.orchestrator = RecommendationOrchestrator(model_db=self.model_db)
+        self.manifest_orchestrator = ManifestOrchestrator(model_db=self.model_db)
+        
+        self.cloud_layer = CloudRecommendationLayer(model_db=self.model_db)
+
+    def generate_recommendations(
         self,
         use_case: str,
         env: EnvironmentReport,
