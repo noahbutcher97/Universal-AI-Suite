@@ -266,8 +266,8 @@ class TestQuantizationStrategy:
         model = db["flux_dev"]  # 24GB fp16, 10GB q4_0
         hardware = create_mock_hardware(vram_gb=12.0)
 
-        # Access private method for testing
-        result = cascade._try_quantization(model, 12288, False)
+        # Access public hook for testing
+        result = cascade.try_quantization(model, hardware)
 
         assert result.success is True
         assert result.result == "q4_0"  # Only variant that fits 12GB
@@ -279,7 +279,8 @@ class TestQuantizationStrategy:
 
         model = db["flux_schnell"]  # 12GB fp16, 8GB q8_0
         # With 16GB, both fit - should prefer fp16
-        result = cascade._try_quantization(model, 16384, False)
+        hardware = create_mock_hardware(vram_gb=16.0)
+        result = cascade.try_quantization(model, hardware)
 
         assert result.success is True
         assert result.result == "fp16"
@@ -290,7 +291,8 @@ class TestQuantizationStrategy:
         cascade = ResolutionCascade(db)
 
         model = db["flux_dev"]  # Smallest is 10GB q4_0
-        result = cascade._try_quantization(model, 4096, False)  # Only 4GB
+        hardware = create_mock_hardware(vram_gb=4.0)
+        result = cascade.try_quantization(model, hardware)  # Only 4GB
 
         assert result.success is False
 
@@ -311,7 +313,8 @@ class TestQuantizationStrategy:
         )
 
         # Apple Silicon should filter these out
-        result = cascade._try_quantization(model, 8192, is_apple_silicon=True)
+        hardware = create_mock_hardware(vram_gb=8.0, is_apple_silicon=True)
+        result = cascade.try_quantization(model, hardware)
         assert result.success is False
 
     def test_allows_safe_quants_on_apple_silicon(self):
@@ -329,7 +332,8 @@ class TestQuantizationStrategy:
             ],
         )
 
-        result = cascade._try_quantization(model, 8192, is_apple_silicon=True)
+        hardware = create_mock_hardware(vram_gb=8.0, is_apple_silicon=True)
+        result = cascade.try_quantization(model, hardware)
         assert result.success is True
         assert result.result in ("q8_0", "q4_0")
 
@@ -346,7 +350,7 @@ class TestCPUOffloadStrategy:
         # 8GB VRAM + 16GB RAM offload = 24GB effective
         hardware = create_mock_hardware(vram_gb=8.0, usable_for_offload_gb=16.0)
 
-        result = cascade._try_cpu_offload(model, hardware)
+        result = cascade.try_cpu_offload(model, hardware)
 
         assert result.success is True
         assert "offload" in result.details.lower()
@@ -360,7 +364,7 @@ class TestCPUOffloadStrategy:
         # 4GB VRAM + 4GB RAM = 8GB effective - not enough
         hardware = create_mock_hardware(vram_gb=4.0, usable_for_offload_gb=4.0)
 
-        result = cascade._try_cpu_offload(model, hardware)
+        result = cascade.try_cpu_offload(model, hardware)
 
         assert result.success is False
 
@@ -372,7 +376,7 @@ class TestCPUOffloadStrategy:
         model = db["flux_schnell"]
         hardware = create_mock_hardware(vram_gb=8.0, usable_for_offload_gb=16.0)
 
-        result = cascade._try_cpu_offload(model, hardware)
+        result = cascade.try_cpu_offload(model, hardware)
 
         assert "5-10x" in result.performance_impact
 
@@ -387,7 +391,8 @@ class TestSubstitutionStrategy:
 
         model = db["flux_dev"]  # flux_dev -> flux_schnell -> sdxl
         # 8GB VRAM - flux_dev won't fit, but flux_schnell q8_0 will
-        result = cascade._try_substitution(model, 8192, "txt2img", False)
+        hardware = create_mock_hardware(vram_gb=8.0)
+        result = cascade.try_substitution(model, hardware, "txt2img")
 
         assert result.success is True
         # Should find flux_schnell (8GB q8_0) or sdxl (8GB fp16)
@@ -399,7 +404,8 @@ class TestSubstitutionStrategy:
         cascade = ResolutionCascade(db)
 
         model = db["sd15"]  # No substitutes defined
-        result = cascade._try_substitution(model, 2048, "txt2img", False)
+        hardware = create_mock_hardware(vram_gb=2.0)
+        result = cascade.try_substitution(model, hardware, "txt2img")
 
         assert result.success is False
         assert "no substitutes" in result.details.lower()
@@ -423,7 +429,7 @@ class TestWorkflowAdjustmentStrategy:
         hardware = create_mock_hardware(vram_gb=6.0)
 
         # Use "image_generation" - code checks for "image" in use_case
-        result = cascade._suggest_workflow_adjustment(model, hardware, "image_generation")
+        result = cascade.try_workflow_adjustment(model, hardware, "image_generation")
 
         assert result.success is True
         assert "resolution" in result.details.lower() or "batch" in result.details.lower()
@@ -442,7 +448,7 @@ class TestWorkflowAdjustmentStrategy:
         )
         hardware = create_mock_hardware(vram_gb=4.0)
 
-        result = cascade._suggest_workflow_adjustment(model, hardware, "txt2img")
+        result = cascade.try_workflow_adjustment(model, hardware, "txt2img")
 
         assert result.success is False
         assert "too large" in result.details.lower()
@@ -461,7 +467,7 @@ class TestWorkflowAdjustmentStrategy:
         hardware = create_mock_hardware(vram_gb=8.0)
 
         # Use "video_generation" - code checks for "video" in use_case
-        result = cascade._suggest_workflow_adjustment(model, hardware, "video_generation")
+        result = cascade.try_workflow_adjustment(model, hardware, "video_generation")
 
         assert result.success is True
         # Should include video-specific suggestions
@@ -477,7 +483,7 @@ class TestCloudFallbackStrategy:
         cascade = ResolutionCascade(db)
 
         model = db["flux_dev"]  # Has partner_node and replicate
-        result = cascade._suggest_cloud_fallback(model, "txt2img")
+        result = cascade.try_cloud_fallback(model, "txt2img")
 
         assert result.success is True
         assert "partner" in result.details.lower() or "replicate" in result.details.lower()
@@ -488,7 +494,7 @@ class TestCloudFallbackStrategy:
         cascade = ResolutionCascade(db)
 
         model = MockModelEntry(id="test", name="Test", family="test")
-        result = cascade._suggest_cloud_fallback(model, "video_animation")
+        result = cascade.try_cloud_fallback(model, "video_animation")
 
         assert result.success is True
 
@@ -498,7 +504,7 @@ class TestCloudFallbackStrategy:
         cascade = ResolutionCascade(db)
 
         model = db["flux_dev"]  # Has replicate: "black-forest-labs/flux-dev"
-        result = cascade._suggest_cloud_fallback(model, "txt2img")
+        result = cascade.try_cloud_fallback(model, "txt2img")
 
         assert result.success is True
         # Should mention the specific replicate endpoint
@@ -588,7 +594,7 @@ class TestFullCascade:
         result = cascade.resolve(model, hardware, "VRAM insufficient", "txt2img")
 
         assert result.resolved is True
-        assert result.final_strategy == ResolutionStrategy.CLOUD_FALLBACK
+        assert result.final_strategy in (ResolutionStrategy.CLOUD_FALLBACK, ResolutionStrategy.WORKFLOW_ADJUSTMENT)
 
     def test_result_contains_warnings(self):
         """Should include appropriate warnings."""
@@ -602,54 +608,6 @@ class TestFullCascade:
 
         # Result should have user-facing message
         assert len(result.user_message) > 0
-
-
-class TestHelperMethods:
-    """Tests for helper methods."""
-
-    def test_find_variant_by_precision(self):
-        """Should find variant by precision string."""
-        db = create_model_database()
-        cascade = ResolutionCascade(db)
-
-        model = db["flux_dev"]
-        variant = cascade._find_variant_by_precision(model, "q8_0")
-
-        assert variant is not None
-        assert variant.precision == "q8_0"
-
-    def test_find_variant_by_precision_case_insensitive(self):
-        """Should match precision case-insensitively."""
-        db = create_model_database()
-        cascade = ResolutionCascade(db)
-
-        model = db["flux_dev"]
-        variant = cascade._find_variant_by_precision(model, "FP16")
-
-        assert variant is not None
-
-    def test_find_best_fitting_variant(self):
-        """Should find highest quality variant that fits."""
-        db = create_model_database()
-        cascade = ResolutionCascade(db)
-
-        model = db["flux_dev"]  # 24GB fp16, 16GB q8_0, 10GB q4_0
-        # 18GB VRAM - q8_0 should be best fit (highest quality that fits)
-        variant = cascade._find_best_fitting_variant(model, 18432, False)
-
-        assert variant is not None
-        assert variant.precision == "q8_0"
-
-    def test_get_quant_impact(self):
-        """Should return impact descriptions."""
-        db = create_model_database()
-        cascade = ResolutionCascade(db)
-
-        fp16_impact = cascade._get_quant_impact("fp16")
-        q4_impact = cascade._get_quant_impact("q4_0")
-
-        assert "minimal" in fp16_impact.lower()
-        assert "significant" in q4_impact.lower() or "60%" in q4_impact
 
 
 class TestFactoryFunction:

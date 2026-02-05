@@ -104,17 +104,25 @@ class Installation(Base):
     __tablename__ = "installations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    item_type = Column(String(50), default="model") # model, custom_node, tool
     model_id = Column(String(100), index=True)
     variant_db_id = Column(Integer, ForeignKey("model_variants.id"))
     
-    status = Column(String(20), default="pending") # pending, downloading, installed, failed
-    local_path = Column(Text)
+    status = Column(String(20), default="pending") # pending, downloading, installed, failed, corrupted
+    local_path = Column(Text, unique=True) # Ensure path deduplication
+    version = Column(String(50))
+    
     current_bytes = Column(Integer, default=0)
     total_bytes = Column(Integer, default=0)
     checksum_verified = Column(Boolean, default=False)
     
-    installed_at = Column(DateTime)
+    metadata_json = Column(JSON) # Store extra info like 'original_filename'
+    
+    installed_at = Column(DateTime, default=datetime.utcnow)
     last_verified_at = Column(DateTime)
+
+    # Relationship for models
+    variant = relationship("ModelVariant")
 
 
 class DownloadTaskRecord(Base):

@@ -3,3 +3,4 @@ requests
 psutil
 keyring
 pyyaml
+sqlalchemy

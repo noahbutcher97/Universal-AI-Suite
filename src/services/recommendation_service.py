@@ -340,7 +340,8 @@ class RecommendationService:
         }
 
         # Estimate Size
-        est_size = best_candidate.requirements.get("size_gb", 2.0) + 1.5 # Core + Venv approx
+        from src.config.constants import VENV_SIZE_ESTIMATE_GB
+        est_size = best_candidate.requirements.get("size_gb", 2.0) + VENV_SIZE_ESTIMATE_GB
         
         return ModuleRecommendation(
             module_id="comfyui",

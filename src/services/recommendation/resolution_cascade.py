@@ -10,6 +10,7 @@ from typing import List, Dict, Optional, Tuple, Set
 
 from src.schemas.hardware import HardwareProfile, PlatformType
 from src.services.model_database import ModelEntry, ModelVariant
+from src.config.constants import DEFAULT_QUANT_PRIORITY, MPS_SAFE_QUANTS
 
 
 class ResolutionStrategy(Enum):
@@ -177,8 +178,8 @@ class StandardResolutionCascade(BaseResolutionCascade):
     """
     Standard implementation of the resolution fallback steps.
     """
-    QUANT_PRIORITY = ["fp16", "bf16", "fp8", "q8_0", "q5_0", "q4_0"]
-    MPS_SAFE_QUANTS = {"q4_0", "q5_0", "q8_0", "f16", "f32", "fp16", "bf16"}
+    QUANT_PRIORITY = DEFAULT_QUANT_PRIORITY
+    MPS_SAFE_QUANTS = MPS_SAFE_QUANTS
 
     def try_quantization(self, model: ModelEntry, hardware: HardwareProfile) -> ResolutionAttempt:
         vram_mb = int(hardware.vram_gb * 1024)
@@ -212,21 +213,55 @@ class StandardResolutionCascade(BaseResolutionCascade):
     def try_substitution(self, model: ModelEntry, hardware: HardwareProfile, use_case: str) -> ResolutionAttempt:
         family = model.family.lower()
         substitutes = SUBSTITUTION_MAP.get(family, [])
-        if not substitutes: return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, False)
+        if not substitutes:
+            return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, False, details=f"No substitutes for {family}")
+        
+        vram_mb = int(hardware.vram_gb * 1024)
+        is_apple = hardware.platform == PlatformType.APPLE_SILICON
         
         for sub_family, ratio in substitutes:
             for mid, cand in self.model_db.items():
                 if cand.family.lower() == sub_family:
-                    return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, True, result=mid, details=f"Suggest {cand.name} instead")
+                    # Check if substitute fits
+                    fit = False
+                    for var in cand.variants:
+                        if is_apple and var.precision.lower() not in self.MPS_SAFE_QUANTS: continue
+                        if var.vram_min_mb <= vram_mb:
+                            fit = True
+                            break
+                    if fit:
+                        return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, True, result=mid, details=f"Suggest {cand.name} instead")
                     
-        return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, False)
+        return ResolutionAttempt(ResolutionStrategy.SUBSTITUTION, False, details="No fitting substitutes found")
 
     def try_workflow_adjustment(self, model: ModelEntry, hardware: HardwareProfile, use_case: str) -> ResolutionAttempt:
-        # Simplified suggestion
-        return ResolutionAttempt(ResolutionStrategy.WORKFLOW_ADJUSTMENT, True, details="Try lower resolution (768x768)")
+        vram_mb = int(hardware.vram_gb * 1024)
+        min_vram = min([v.vram_min_mb for v in model.variants], default=0)
+        gap = min_vram - vram_mb
+        
+        if gap <= 0:
+            return ResolutionAttempt(ResolutionStrategy.WORKFLOW_ADJUSTMENT, False, details="Fits natively")
+            
+        if gap > 4096:
+            return ResolutionAttempt(ResolutionStrategy.WORKFLOW_ADJUSTMENT, False, details="VRAM gap too large")
+
+        msg = "Try lower resolution (768x768)"
+        if "video" in use_case.lower():
+            msg = "Try shorter video clips"
+            
+        return ResolutionAttempt(ResolutionStrategy.WORKFLOW_ADJUSTMENT, True, details=msg)
 
     def try_cloud_fallback(self, model: ModelEntry, use_case: str) -> ResolutionAttempt:
-        return ResolutionAttempt(ResolutionStrategy.CLOUD_FALLBACK, True, details="Cloud API recommended")
+        opts = []
+        if hasattr(model, "cloud") and model.cloud:
+            if model.cloud.partner_node: opts.append("Partner Node")
+            if model.cloud.replicate: opts.append("Replicate")
+            
+        details = "Cloud API recommended"
+        if opts:
+            details = f"Cloud options available: {', '.join(opts)}"
+            
+        return ResolutionAttempt(ResolutionStrategy.CLOUD_FALLBACK, True, result="cloud", details=details)
 
 
 # Legacy compatibility

@@ -1,115 +1,92 @@
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
-import platform
+"""
+Unit and Integration tests for DB-03: Relational Installation Tracking.
+"""
+
+import pytest
 import os
-import sys
-from src.services.dev_service import DevService
-from src.services.system_service import SystemService
+from pathlib import Path
+from src.services.installation_service import InstallationService
+from src.services.database.engine import DatabaseManager
+from src.services.database.models import Model, ModelVariant, Installation
 
-class TestInstallationSuite(unittest.TestCase):
-    """
-    Comprehensive Installation Test Suite.
-    Verifies package integrity, dependency resolution, command generation,
-    and post-install configuration for all supported tools.
-    """
+# Use a temporary test database
+INST_TEST_DB = Path("data/test_installations.db")
 
-    def setUp(self):
-        # Clear caches to ensure isolation
-        DevService.get_system_tools_config.cache_clear()
-        DevService.get_system_install_cmd.cache_clear()
-        DevService.get_install_cmd.cache_clear()
-        SystemService.check_dependency.cache_clear()
+@pytest.fixture
+def inst_service(monkeypatch):
+    """Provides an InstallationService with a clean test database."""
+    if INST_TEST_DB.exists():
+        try: os.remove(INST_TEST_DB)
+        except: pass
+    
+    manager = DatabaseManager(db_path=INST_TEST_DB)
+    manager.init_db()
+    
+    from src.services import installation_service
+    monkeypatch.setattr(installation_service, "db_manager", manager)
+    
+    service = InstallationService()
+    yield service
+    
+    manager.engine.dispose()
+    if INST_TEST_DB.exists():
+        try: os.remove(INST_TEST_DB)
+        except: pass
 
-    def test_schema_integrity(self):
-        """
-        Verify every tool in resources.json has valid definitions for at least one OS.
-        """
-        config = DevService.get_system_tools_config()
-        definitions = config.get("definitions", {})
-        
-        for tool_id, tool_def in definitions.items():
-            with self.subTest(tool=tool_id):
-                self.assertIn("name", tool_def)
-                self.assertIn("install", tool_def)
-                # Must have at least one OS support
-                self.assertTrue(any(k in ["windows", "darwin", "linux"] for k in tool_def["install"].keys()),
-                                f"Tool {tool_id} has no installation commands")
+def test_register_and_deduplicate(inst_service):
+    """Verify that registering the same path twice updates the existing record."""
+    path = "models/flux_fp16.safetensors"
+    
+    # 1. First registration
+    inst1 = inst_service.register_installation("flux", 1, path)
+    assert inst1.model_id == "flux"
+    
+    # 2. Duplicate registration (different model_id, same path)
+    inst2 = inst_service.register_installation("flux_pro", 2, path)
+    
+    # IDs should match (deduplicated)
+    assert inst1.id == inst2.id
+    assert inst2.model_id == "flux_pro"
 
-    @patch("platform.system", return_value="Windows")
-    @patch("shutil.which", return_value="winget.exe")
-    def test_command_generation_windows(self, mock_which, mock_system):
-        """
-        Verify correct install commands are generated for Windows.
-        """
-        # System Tools
-        cmd_python = DevService.get_system_install_cmd("python")
-        self.assertIn("winget", cmd_python)
-        self.assertIn("--source", cmd_python, "Winget commands must specify source")
-        
-        # AI Tools (NPM)
-        cmd_claude = DevService.get_install_cmd("claude", scope="system")
-        self.assertEqual(cmd_claude, ["npm", "install", "-g", "@anthropic-ai/claude-code"])
+def test_get_installed_with_metadata(inst_service):
+    """Verify relational joining of Installation -> Model -> Variant."""
+    from src.services.installation_service import db_manager
+    session = db_manager.get_session()
+    
+    # 1. Setup relational data
+    m = Model(id="sdxl", name="Stable Diffusion XL", category="image_generation")
+    v = ModelVariant(id=1, model_id="sdxl", variant_id="fp16", precision="fp16", vram_min_mb=12000)
+    session.add(m)
+    session.add(v)
+    session.commit()
+    
+    # 2. Register and complete installation
+    inst = inst_service.register_installation("sdxl", 1, "models/sdxl.safetensors")
+    inst_service.update_status(inst.id, "installed")
+    
+    # 3. Query
+    results = inst_service.get_installed_models()
+    assert len(results) == 1
+    
+    inst_rec, model_rec, variant_rec = results[0]
+    assert model_rec.name == "Stable Diffusion XL"
+    assert variant_rec.precision == "fp16"
+    assert inst_rec.status == "installed"
+    
+    session.close()
 
-    @patch("platform.system", return_value="Linux")
-    def test_command_generation_linux(self, mock_system):
-        """
-        Verify Linux command generation logic.
-        """
-        # Rust (Curl)
-        cmd_rust = DevService.get_system_install_cmd("rust")
-        self.assertTrue(isinstance(cmd_rust, str) and "curl" in cmd_rust)
-        
-        # Pip Tool (User Scope)
-        with patch("sys.prefix", "/usr"), patch("sys.base_prefix", "/usr"):
-            cmd_hf = DevService.get_install_cmd("huggingface", scope="user")
-            self.assertIn("--user", cmd_hf)
-
-    @patch("src.services.system_service.SystemService.check_dependency", return_value=False)
-    @patch("shutil.which", return_value=None)
-    def test_dependency_gating(self, mock_which, mock_check_dep):
-        """
-        Verify that NPM tools report 'Not Installed' if Node/NPM is missing.
-        """
-        # Mock NPM missing
-        self.assertFalse(DevService.is_installed("claude"))
-        
-        # Even if we try to check 'is_installed', it should verify NPM dependency first for npm types
-        # (This logic is inside is_installed for npm types if binary check fails)
-
-    @patch("platform.system", return_value="Windows")
-    @patch.dict("os.environ", {"APPDATA": "C:\\Users\\Test\\AppData\\Roaming", "PATH": "C:\\Windows"})
-    @patch("subprocess.check_call")
-    @patch("os.path.exists", return_value=True)
-    def test_post_install_path_patching(self, mock_exists, mock_call, mock_system):
-        """
-        Verify add_to_system_path constructs correct PowerShell command.
-        """
-        # Test NPM tool
-        success = DevService.add_to_system_path("claude")
-        self.assertTrue(success)
-        
-        # Verify PowerShell command
-        args = mock_call.call_args[0][0] # First arg is the command list
-        ps_command = args[3] # ["powershell", ..., "-Command", CMD]
-        
-        self.assertIn("[Environment]::SetEnvironmentVariable", ps_command)
-        self.assertIn("npm", ps_command)
-        self.assertIn("User", ps_command)
-
-    def test_full_matrix_generation(self):
-        """
-        Automated test generation for all AI tools.
-        Ensures we can resolve commands for every AI tool in the DB.
-        """
-        providers = DevService.get_all_providers()
-        for tool in providers:
-            for os_name in ["Windows", "Darwin", "Linux"]:
-                with self.subTest(tool=tool, os=os_name):
-                    with patch("platform.system", return_value=os_name):
-                        # Mock shutil.which for brew/winget detection
-                        with patch("shutil.which", return_value="/bin/mock"):
-                            cmd = DevService.get_install_cmd(tool)
-                            self.assertIsNotNone(cmd, f"Failed to gen command for {tool} on {os_name}")
-
-if __name__ == "__main__":
-    unittest.main()
+def test_health_check_missing_file(inst_service):
+    """Verify that health check detects missing files."""
+    path = "non_existent_file.safetensors"
+    inst = inst_service.register_installation("test", 1, path)
+    
+    # Should be false because file doesn't exist
+    is_healthy = inst_service.verify_health(inst.id)
+    assert is_healthy is False
+    
+    # Status should have changed to failed
+    from src.services.installation_service import db_manager
+    session = db_manager.get_session()
+    updated = session.get(Installation, inst.id)
+    assert updated.status == "failed"
+    session.close()

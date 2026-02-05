@@ -94,14 +94,15 @@ class SystemService:
         """
         Calculate recommended storage headroom to maintain OS stability.
 
-        Formula: (System_RAM * 0.5) + 10GB Safety Buffer
+        Formula: (System_RAM * 0.5) + STORAGE_SAFETY_BUFFER_GB
         - System_RAM * 0.5 accounts for potential large swap file / paging needs
-        - 10GB buffer for OS updates, hibernation file, and temp files
+        - Buffer for OS updates, hibernation file, and temp files
 
         Per Task SYS-05.
         """
+        from src.config.constants import STORAGE_SAFETY_BUFFER_GB
         ram_gb = SystemService.get_system_ram_gb() or 16.0
-        return (ram_gb * 0.5) + 10.0
+        return (ram_gb * 0.5) + STORAGE_SAFETY_BUFFER_GB
 
     @staticmethod
     def check_storage_headroom(required_gb: float, path: str = ".") -> bool:

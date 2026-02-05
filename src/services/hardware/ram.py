@@ -24,7 +24,7 @@ from src.utils.subprocess_utils import (
     extract_number,
     extract_json,
 )
-
+from src.config.constants import OS_RESERVED_RAM_GB, OFFLOAD_SAFETY_FACTOR
 
 # System RAM bandwidth by memory type (GB/s, dual-channel)
 # Based on DDR specifications

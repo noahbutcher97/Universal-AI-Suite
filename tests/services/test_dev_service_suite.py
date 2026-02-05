@@ -22,7 +22,7 @@ class TestDevServiceSuite(unittest.TestCase):
         
         # Test 1: Node.js (List format)
         cmd_node = DevService.get_system_install_cmd("node")
-        self.assertEqual(cmd_node, ["winget", "install", "-e", "--id", "OpenJS.NodeJS"],
+        self.assertEqual(cmd_node, ["winget", "install", "-e", "--id", "OpenJS.NodeJS", "--source", "winget"],
                          "Node.js on Windows should use Winget list format")
 
         # Test 2: UV (String format - PowerShell)
