@@ -907,11 +907,16 @@ class SQLiteModelDatabase:
             for model_row, variant_row in raw_results:
                 # Platform compatibility check (JSON logic)
                 ps = variant_row.platform_support.get(platform, {})
-                if not ps.get("supported"):
+                if isinstance(ps, bool):
+                    if not ps: continue
+                elif isinstance(ps, dict):
+                    if not ps.get("supported"):
+                        continue
+                else:
                     continue
                 
                 # Compute capability check
-                min_cc = ps.get("cc")
+                min_cc = ps.get("cc") if isinstance(ps, dict) else None
                 if min_cc and (compute_capability is None or compute_capability < min_cc):
                     continue
 
@@ -942,6 +947,21 @@ class SQLiteModelDatabase:
                 yield self._to_model_entry(db_model)
         finally:
             session.close()
+
+    def get_model(self, model_id: str) -> Optional[ModelEntry]:
+        """Get a specific model by ID from the relational database."""
+        session = self.db_manager.get_session()
+        try:
+            db_model = session.query(self.DBModel).filter(self.DBModel.id == model_id).first()
+            if db_model:
+                return self._to_model_entry(db_model)
+            return None
+        finally:
+            session.close()
+
+    def get_all_models(self) -> List[ModelEntry]:
+        """Get all models from the relational database."""
+        return list(self.iter_models())
 
     def get_required_nodes(self, model: ModelEntry, variant: ModelVariant) -> List[str]:
         """
@@ -982,13 +1002,13 @@ class SQLiteModelDatabase:
                 continue
 
             # Check platform support
-            # Note: DB stores platform_support as a Dict[str, dict]
+            # Note: variant.platform_support is a Dict[str, PlatformSupport]
             ps = variant.platform_support.get(platform)
-            if not ps or not ps.get("supported"):
+            if not ps or not ps.supported:
                 continue
 
             # Check compute capability for FP8 variants
-            min_cc = ps.get("cc")
+            min_cc = ps.min_compute_capability
             if min_cc:
                 if compute_capability is None or compute_capability < min_cc:
                     continue
@@ -998,6 +1018,22 @@ class SQLiteModelDatabase:
         # Sort by quality retention (prefer higher quality)
         compatible.sort(key=lambda v: v.quality_retention_percent, reverse=True)
         return compatible
+
+    def get_paired_models(self, model: ModelEntry) -> List[str]:
+        """Get model IDs that must be used together with this model."""
+        return [
+            pm.get("model_id", "")
+            for pm in model.dependencies.paired_models
+            if pm.get("model_id")
+        ]
+
+    def __contains__(self, model_id: str) -> bool:
+        """Check if a model ID exists in the database."""
+        session = self.db_manager.get_session()
+        try:
+            return session.query(self.DBModel).filter(self.DBModel.id == model_id).count() > 0
+        finally:
+            session.close()
 
     def _to_model_entry(self, db_model) -> ModelEntry:
         """Helper to convert DB Model to ModelEntry dataclass."""
