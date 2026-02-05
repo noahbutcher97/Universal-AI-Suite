@@ -1001,15 +1001,11 @@ class SQLiteModelDatabase:
 
     def _to_model_entry(self, db_model) -> ModelEntry:
         """Helper to convert DB Model to ModelEntry dataclass."""
-        from src.services.database.models import (
-            ModelCapabilities as DBModelCapabilities,
-            ModelDependencies as DBModelDependencies,
-            ModelExplanation as DBModelExplanation,
-            CloudInfo as DBCloudInfo
-        )
+        # Note: In the relational schema, these are stored as JSON blobs
+        # and automatically deserialized by SQLAlchemy/JSON column.
+        # We wrap them in their respective dataclasses for the service layer.
         
-        # Parse nested dataclasses from DB models
-        # Note: In a production refactor, this mapping logic should move to a dedicated Mapper.
+        # Ensure we use the dataclasses defined in this file
         return ModelEntry(
             id=db_model.id,
             name=db_model.name,
@@ -1017,20 +1013,37 @@ class SQLiteModelDatabase:
             family=db_model.family,
             category=db_model.category,
             commercial_use=db_model.commercial_use,
-            capabilities=db_model.capabilities,
-            dependencies=db_model.dependencies,
-            explanation=db_model.explanation,
-            cloud_info=db_model.cloud_info,
+            release_date=db_model.release_date,
+            license=db_model.license,
+            repository_url=db_model.repository_url,
+            architecture=db_model.architecture or {},
+            capabilities=ModelCapabilities(**db_model.capabilities) if db_model.capabilities else ModelCapabilities(),
+            dependencies=ModelDependencies(**db_model.dependencies) if db_model.dependencies else ModelDependencies(),
+            explanation=ModelExplanation(**db_model.explanation) if db_model.explanation else ModelExplanation(),
+            cloud=CloudInfo(**db_model.cloud) if db_model.cloud else CloudInfo(),
+            hardware=HardwareInfo(**db_model.hardware) if db_model.hardware else HardwareInfo(),
             # Populate variants for iter_models usage
             variants=[self._to_model_variant(v) for v in db_model.variants]
         )
 
     def _to_model_variant(self, db_variant) -> ModelVariant:
         """Helper to convert DB ModelVariant to ModelVariant dataclass."""
-        from src.services.database.models import PlatformSupport as DBPlatformSupport
-        
+        # Note: platform_support is stored as a JSON dict in the DB.
+        # It uses 'cc' for 'min_compute_capability' and 'supported' for 'supported'.
+        ps_dict = {}
+        if db_variant.platform_support:
+            for plat, data in db_variant.platform_support.items():
+                if isinstance(data, dict):
+                    ps_dict[plat] = PlatformSupport(
+                        supported=data.get("supported", False),
+                        min_compute_capability=data.get("cc") or data.get("min_compute_capability"),
+                        notes=data.get("notes")
+                    )
+                elif isinstance(data, bool):
+                    ps_dict[plat] = PlatformSupport(supported=data)
+
         return ModelVariant(
-            id=db_variant.id,
+            id=db_variant.variant_id, # Use variant_id ('fp16') not the DB auto-inc id
             precision=db_variant.precision,
             vram_min_mb=db_variant.vram_min_mb,
             vram_recommended_mb=db_variant.vram_recommended_mb,
@@ -1038,7 +1051,7 @@ class SQLiteModelDatabase:
             quality_retention_percent=db_variant.quality_retention_percent,
             download_url=db_variant.download_url,
             sha256=db_variant.sha256,
-            platform_support=db_variant.platform_support,
-            requires_nodes=db_variant.requires_nodes,
+            platform_support=ps_dict,
+            requires_nodes=db_variant.requires_nodes or [],
             notes=db_variant.notes
         )

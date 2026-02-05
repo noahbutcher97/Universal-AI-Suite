@@ -459,7 +459,8 @@ class SetupWizard(ctk.CTkToplevel):
             self.after(0, self.show_model_selection_stage)
         except Exception as e:
             log.exception(f"Error in recommendation thread: {e}")
-            self.after(0, lambda: self._show_recommendation_error(str(e)))
+            err_str = str(e)
+            self.after(0, lambda: self._show_recommendation_error(err_str))
 
     def _show_recommendation_error(self, error_msg: str):
         """Show error message if recommendation fails."""
