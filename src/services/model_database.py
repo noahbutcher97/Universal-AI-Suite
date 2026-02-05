@@ -166,18 +166,32 @@ PLATFORM_KEYS = {
 }
 
 
-def normalize_platform(gpu_vendor: str, os_platform: str) -> str:
+def normalize_platform(gpu_vendor: str, os_platform: Any) -> str:
     """
     Convert gpu_vendor and OS to a platform key.
 
     Args:
         gpu_vendor: "nvidia", "apple", "amd", "none"
-        os_platform: "Windows", "Darwin", "Linux"
+        os_platform: "Windows", "Darwin", "Linux" or PlatformType enum
 
     Returns:
         Platform key: "windows_nvidia", "mac_mps", "linux_rocm"
     """
-    os_lower = os_platform.lower()
+    # If already a PlatformType enum, map it to YAML keys
+    from src.schemas.hardware import PlatformType
+    if isinstance(os_platform, PlatformType):
+        if os_platform == PlatformType.APPLE_SILICON:
+            return "mac_mps"
+        elif os_platform == PlatformType.LINUX_ROCM:
+            return "linux_rocm"
+        elif os_platform in (PlatformType.WINDOWS_NVIDIA, PlatformType.LINUX_NVIDIA, PlatformType.WSL2_NVIDIA):
+            return "windows_nvidia"
+        elif os_platform == PlatformType.CPU_ONLY:
+            return "windows_nvidia" # Fallback for now
+        return os_platform.value
+
+    os_str = str(os_platform)
+    os_lower = os_str.lower()
     vendor_lower = gpu_vendor.lower()
 
     if "darwin" in os_lower or "mac" in os_lower:

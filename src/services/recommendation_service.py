@@ -215,11 +215,24 @@ class RecommendationService:
         except Exception:
             # Fallback to normalized constraints if full detection fails during transition
             from src.schemas.hardware import HardwareProfile, PlatformType
+            
+            # Map env.os_name string to PlatformType enum
+            os_name = env.os_name.lower()
+            if "windows" in os_name:
+                plat = PlatformType.WINDOWS_NVIDIA
+            elif "darwin" in os_name or "mac" in os_name:
+                plat = PlatformType.APPLE_SILICON
+            elif "linux" in os_name:
+                # Default to NVIDIA for Linux fallback
+                plat = PlatformType.LINUX_NVIDIA
+            else:
+                plat = PlatformType.UNKNOWN
+
             full_hardware = HardwareProfile(
                 gpu_vendor=env.gpu_vendor,
                 gpu_name=env.gpu_name,
                 vram_gb=env.vram_gb,
-                platform=env.os_name # Simplified
+                platform=plat
             )
 
         # 2. Execute modern 3-layer orchestration
