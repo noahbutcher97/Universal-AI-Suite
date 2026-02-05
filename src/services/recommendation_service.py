@@ -11,6 +11,7 @@ from src.schemas.recommendation import (
     CloudRankedCandidate,
     RecommendationResults,
 )
+from src.schemas.installation import InstallationManifest
 from src.services.scoring_service import ScoringService
 from src.services.model_database import (
     ModelDatabase,
@@ -20,6 +21,7 @@ from src.services.model_database import (
     normalize_platform,
 )
 from src.services.recommendation.cloud_layer import CloudRecommendationLayer
+from src.services.recommendation.topsis_layer import RankedCandidate
 from src.utils.logger import log
 
 
