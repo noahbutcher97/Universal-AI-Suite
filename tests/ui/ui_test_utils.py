@@ -16,7 +16,7 @@ from src.services.system_service import SystemService
 from src.services.setup_wizard_service import SetupWizardService
 from src.schemas.environment import EnvironmentReport
 from src.schemas.hardware import HardwareProfile, PlatformType
-from src.schemas.recommendation import ModelCandidate, RecommendationResults, ModelCapabilityScores, ModuleRecommendation
+from src.schemas.recommendation import RankedCandidate, RecommendationResults, ModuleRecommendation
 
 class UIMockFactory:
     """
@@ -173,13 +173,20 @@ class DataGenerator:
             return "Test Task"
         if name == 'model':
             # Local model mock
-            return ModelCandidate(
-                id="test_model", 
-                display_name="Test Model", 
-                tier="sdxl",
-                capabilities=ModelCapabilityScores(),
-                requirements={}
-            )
+            m = MagicMock(spec=RankedCandidate)
+            m.id = "test_model"
+            m.display_name = "Test Model"
+            m.tier = "sdxl"
+            m.composite_score = 0.9
+            m.hardware_fit_score = 0.8
+            m.content_similarity_score = 0.9
+            m.speed_fit_score = 0.7
+            m.user_fit_score = 0.8
+            m.approach_fit_score = 0.9
+            m.reasoning = ["Excellent fit"]
+            m.requirements = {"size_gb": 2.0, "vram_min_gb": 8.0}
+            m.required_nodes = []
+            return m
         if name == 'results':
             return RecommendationResults(local_recommendations=[], cloud_recommendations=[])
         if name == 'modalities':

@@ -14,8 +14,6 @@ from src.services.recommendation.content_layer import (
     VideoScorer,
     ModalityScorer,
     MODALITY_SCORERS,
-    FeatureMatch,
-    ScoredCandidate,
 )
 from src.schemas.recommendation import (
     UseCaseDefinition,
@@ -26,8 +24,10 @@ from src.schemas.recommendation import (
     convert_legacy_preferences,
     ContentPreferences,
     UserProfile,
+    FeatureMatch,
+    ScoredCandidate,
+    PassingCandidate,
 )
-from src.services.recommendation.constraint_layer import PassingCandidate
 
 
 # --- Mock ModelEntry for testing ---

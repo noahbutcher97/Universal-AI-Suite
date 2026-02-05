@@ -14,7 +14,7 @@ from src.schemas.recommendation import (
     CloudRecommendationInfo,
     RecommendationResults,
     UserProfile,
-    ModelCandidate,
+    RankedCandidate,
 )
 
 
@@ -222,10 +222,9 @@ class TestRecommendationResults:
 
     def test_local_only_results(self):
         """RecommendationResults for local_only user should have no cloud."""
-        local_candidate = ModelCandidate(
-            id="flux-dev",
-            display_name="FLUX.1 Dev"
-        )
+        from unittest.mock import MagicMock
+        local_candidate = MagicMock(spec=RankedCandidate)
+        local_candidate.id = "flux-dev"
 
         results = RecommendationResults(
             local_recommendations=[local_candidate],
@@ -257,10 +256,10 @@ class TestRecommendationResults:
 
     def test_mixed_results(self):
         """RecommendationResults for cloud_fallback should have both."""
-        local_candidate = ModelCandidate(
-            id="sdxl",
-            display_name="SDXL"
-        )
+        from unittest.mock import MagicMock
+        local_candidate = MagicMock(spec=RankedCandidate)
+        local_candidate.id = "sdxl"
+
         cloud_candidate = CloudRankedCandidate(
             model_id="dall-e-3",
             display_name="DALL-E 3",

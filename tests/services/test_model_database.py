@@ -11,14 +11,16 @@ import yaml
 
 from src.services.model_database import (
     ModelDatabase,
+    normalize_platform,
+    get_model_database,
+    reload_model_database,
+)
+from src.schemas.model import (
     ModelEntry,
     ModelVariant,
     ModelCapabilities,
     PlatformSupport,
     HardwareInfo,
-    normalize_platform,
-    get_model_database,
-    reload_model_database,
 )
 
 

@@ -5,10 +5,8 @@ Unit tests for dependency-aware manifest generation.
 import pytest
 from unittest.mock import MagicMock
 from src.services.recommendation.manifest_orchestrator import ManifestOrchestrator
-from src.schemas.recommendation import UserProfile
-from src.services.recommendation.content_layer import ScoredCandidate, PassingCandidate
-from src.services.recommendation.topsis_layer import RankedCandidate
-from src.services.model_database import ModelEntry, ModelVariant
+from src.schemas.model import ModelEntry, ModelVariant
+from src.schemas.recommendation import UserProfile, ScoredCandidate, PassingCandidate, RankedCandidate
 
 class TestManifestOrchestrator:
     """Tests for cascading dependency resolution."""

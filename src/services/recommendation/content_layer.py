@@ -16,7 +16,6 @@ SPEC_v3 Section 6.3.1 Modular Modality Architecture:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple, Type
 import math
 
@@ -27,27 +26,11 @@ from src.schemas.recommendation import (
     SharedQualityPrefs,
     ImageModalityPrefs,
     VideoModalityPrefs,
+    PassingCandidate,
+    FeatureMatch,
+    ScoredCandidate
 )
-from src.services.recommendation.constraint_layer import PassingCandidate
-from src.services.model_database import ModelEntry
-
-
-@dataclass
-class FeatureMatch:
-    """A feature that matches between user and model."""
-    feature_id: str
-    user_value: float
-    model_value: float
-    contribution: float  # How much this contributed to similarity
-
-
-@dataclass
-class ScoredCandidate:
-    """A candidate with content-based similarity score."""
-    passing_candidate: PassingCandidate
-    similarity_score: float  # 0.0 - 1.0
-    matching_features: List[FeatureMatch] = field(default_factory=list)
-    style_match_bonus: float = 0.0
+from src.schemas.model import ModelEntry
 
 
 # --- Modality Scorers (SPEC_v3 Section 6.3.2) ---

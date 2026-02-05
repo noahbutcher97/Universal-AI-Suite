@@ -12,33 +12,17 @@ Criteria:
 5. approach_fit - User's preferred complexity level
 """
 
-from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 import math
 
 from src.schemas.hardware import HardwareProfile, StorageTier
-from src.schemas.recommendation import UserProfile, ContentPreferences
-from src.services.recommendation.content_layer import ScoredCandidate
-
-
-@dataclass
-class CriterionScore:
-    """Score for a single TOPSIS criterion."""
-    criterion_id: str
-    raw_score: float  # 0.0 - 1.0
-    weight: float
-    weighted_score: float
-    is_benefit: bool = True  # True = higher is better
-
-
-@dataclass
-class RankedCandidate:
-    """Final ranked candidate with TOPSIS score."""
-    scored_candidate: ScoredCandidate
-    closeness_coefficient: float  # 0.0 - 1.0 (higher = better)
-    criterion_scores: Dict[str, CriterionScore] = field(default_factory=dict)
-    final_rank: int = 0
-    explanation: str = ""
+from src.schemas.recommendation import (
+    UserProfile, 
+    ContentPreferences, 
+    ScoredCandidate,
+    CriterionScore,
+    RankedCandidate
+)
 
 
 class TOPSISLayer:
@@ -104,19 +88,20 @@ class TOPSISLayer:
         if not candidates:
             return []
 
-        # Step 1: Build decision matrix
+        # Step 1: Build decision matrix (Actual raw scores 0.0-1.0)
         decision_matrix = self._build_decision_matrix(
             candidates, hardware, user_profile
         )
 
-        # Step 2: Normalize the matrix
+        # Step 2: Normalize the matrix (Vector normalization)
         normalized = self._normalize_matrix(decision_matrix)
 
         # Step 3: Apply weights
         weighted = self._apply_weights(normalized)
 
         # Step 4-6: Compute closeness coefficients
-        ranked = self._compute_closeness(candidates, weighted)
+        # Pass decision_matrix to preserve raw scores for explainability
+        ranked = self._compute_closeness(candidates, weighted, decision_matrix)
 
         # Sort by closeness (descending)
         ranked.sort(key=lambda r: r.closeness_coefficient, reverse=True)
@@ -357,6 +342,7 @@ class TOPSISLayer:
         self,
         candidates: List[ScoredCandidate],
         weighted: List[Dict[str, float]],
+        decision_matrix: List[Dict[str, float]],
     ) -> List[RankedCandidate]:
         """
         Compute closeness coefficient for each candidate.
@@ -377,7 +363,7 @@ class TOPSISLayer:
         anti_ideal = {c: min(row[c] for row in weighted) for c in criteria}
 
         ranked = []
-        for i, (candidate, row) in enumerate(zip(candidates, weighted)):
+        for i, (candidate, row, raw_row) in enumerate(zip(candidates, weighted, decision_matrix)):
             # Distance to ideal
             d_plus = math.sqrt(sum((row[c] - ideal[c]) ** 2 for c in criteria))
 
@@ -395,7 +381,7 @@ class TOPSISLayer:
             for c in criteria:
                 criterion_scores[c] = CriterionScore(
                     criterion_id=c,
-                    raw_score=row[c] / self.weights.get(c, 1.0) if self.weights.get(c, 0) > 0 else 0,
+                    raw_score=raw_row[c],  # Use original raw score 0.0-1.0
                     weight=self.weights.get(c, 0.0),
                     weighted_score=row[c],
                     is_benefit=True,

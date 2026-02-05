@@ -22,13 +22,9 @@ class TestAdvancedIsolation(unittest.TestCase):
         This ensures packages stay inside the project environment.
         """
         # Test generic pip package
-        mock_resources = {
-            "modules": {"cli_provider": {"providers": {
-                "test-pkg": {"package": "mypackage", "package_type": "pip"}
-            }}}
-        }
+        mock_conf = {"package": "mypackage", "package_type": "pip"}
         
-        with patch("src.services.dev_service.config_manager.get_resources", return_value=mock_resources):
+        with patch("src.services.dev_service.DevService.get_provider_config", return_value=mock_conf):
             cmd = DevService.get_install_cmd("test-pkg", scope="user")
             
             # Assertions
@@ -38,17 +34,12 @@ class TestAdvancedIsolation(unittest.TestCase):
 
     def test_version_constraint_preservation(self):
         """
-        Verify that version constraints in resources.json are strictly preserved in install commands.
+        Verify that version constraints are strictly preserved in install commands.
         """
         versioned_pkg = "huggingface_hub[cli]>=0.20.0"
+        mock_conf = {"package": versioned_pkg, "package_type": "pip"}
         
-        mock_resources = {
-            "modules": {"cli_provider": {"providers": {
-                "hf": {"package": versioned_pkg, "package_type": "pip"}
-            }}}
-        }
-        
-        with patch("src.services.dev_service.config_manager.get_resources", return_value=mock_resources):
+        with patch("src.services.dev_service.DevService.get_provider_config", return_value=mock_conf):
             # We don't care about the Python path here, just the package arg
             cmd = DevService.get_install_cmd("hf")
             self.assertIn(versioned_pkg, cmd)

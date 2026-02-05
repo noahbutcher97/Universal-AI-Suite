@@ -9,7 +9,8 @@ from enum import Enum
 from typing import List, Dict, Optional, Tuple, Set
 
 from src.schemas.hardware import HardwareProfile, PlatformType
-from src.services.model_database import ModelEntry, ModelVariant
+from src.schemas.model import ModelEntry, ModelVariant
+from src.schemas.recommendation import RejectionReason
 from src.config.constants import DEFAULT_QUANT_PRIORITY, MPS_SAFE_QUANTS
 
 

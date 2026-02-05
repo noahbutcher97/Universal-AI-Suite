@@ -12,7 +12,7 @@ import customtkinter as ctk
 from typing import Optional, Callable, List, Union
 from dataclasses import dataclass
 
-from src.schemas.recommendation import ModelCandidate, CloudRankedCandidate
+from src.schemas.recommendation import CloudRankedCandidate, RankedCandidate
 from src.utils.performance_monitor import measure_time
 
 
@@ -103,7 +103,7 @@ class ModelCard(ctk.CTkFrame):
     def __init__(
         self,
         master,
-        model: Union[ModelCandidate, CloudRankedCandidate],
+        model: Union[RankedCandidate, CloudRankedCandidate],
         is_cloud: bool = False,
         is_recommended: bool = False,
         on_select: Callable[[str, bool], None] = None
@@ -127,11 +127,12 @@ class ModelCard(ctk.CTkFrame):
             self.hardware_fit_score = 1.0  # Cloud doesn't need hardware fit
             self.cost_score = model.cost_score
         else:
+            # Modern RankedCandidate has these as properties
             self.model_id = model.id
             self.display_name = model.display_name
             self.overall_score = model.composite_score
             self.reasoning = model.reasoning
-            self.hardware_fit_score = getattr(model, 'hardware_fit_score', 0.5)
+            self.hardware_fit_score = model.hardware_fit_score
             self.cost_score = 0.0  # Not applicable for local
 
         # Selection state - always start unselected, let parent restore from persistent state
@@ -358,11 +359,11 @@ class ModelCard(ctk.CTkFrame):
             # Local models show 5 TOPSIS criteria scores for parity with cloud
             model_local = self.model
             scores = [
-                ("Content Match", getattr(model_local, 'content_similarity_score', 0.5)),
-                ("Hardware Fit", self.hardware_fit_score),
-                ("Speed Estimate", getattr(model_local, 'speed_fit_score', 0.5)),
-                ("Ecosystem", getattr(model_local, 'user_fit_score', 0.5)),
-                ("Workflow Fit", getattr(model_local, 'approach_fit_score', 0.5)),
+                ("Content Match", model_local.content_similarity_score),
+                ("Hardware Fit", model_local.hardware_fit_score),
+                ("Speed Estimate", model_local.speed_fit_score),
+                ("Ecosystem", model_local.user_fit_score),
+                ("Workflow Fit", model_local.approach_fit_score),
             ]
 
         for name, score in scores:

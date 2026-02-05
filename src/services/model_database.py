@@ -14,6 +14,16 @@ import yaml
 import threading
 
 from src.utils.logger import log
+from src.schemas.model import (
+    PlatformSupport,
+    ModelVariant,
+    ModelCapabilities,
+    ModelDependencies,
+    ModelExplanation,
+    CloudInfo,
+    HardwareInfo,
+    ModelEntry
+)
 
 
 class ModelDatabaseError(Exception):
@@ -22,141 +32,7 @@ class ModelDatabaseError(Exception):
 
 
 # =============================================================================
-# Data Classes for YAML Schema
-# =============================================================================
-
-@dataclass
-class PlatformSupport:
-    """Platform support configuration for a model variant."""
-    supported: bool = False
-    min_compute_capability: Optional[float] = None
-    notes: Optional[str] = None
-
-
-@dataclass
-class ModelVariant:
-    """A specific variant of a model (e.g., fp16, fp8, gguf_q4)."""
-    id: str
-    precision: str
-    vram_min_mb: int
-    vram_recommended_mb: int
-    download_size_gb: float
-    quality_retention_percent: int = 100
-    download_url: Optional[str] = None
-    sha256: Optional[str] = None  # SHA256 checksum for download verification
-    platform_support: Dict[str, PlatformSupport] = field(default_factory=dict)
-    requires_nodes: List[str] = field(default_factory=list)
-    notes: Optional[str] = None
-
-
-@dataclass
-class ModelCapabilities:
-    """Capabilities and scores for a model."""
-    primary: List[str] = field(default_factory=list)
-    scores: Dict[str, float] = field(default_factory=dict)
-    features: List[Dict[str, Any]] = field(default_factory=list)
-    style_strengths: List[str] = field(default_factory=list)
-    controlnet_support: List[str] = field(default_factory=list)
-
-    # Video-specific
-    video_modes: List[str] = field(default_factory=list)
-    max_duration_seconds: Optional[int] = None
-    max_resolution: Optional[str] = None
-    audio_support: bool = False
-
-    # Audio-specific
-    voice_cloning: bool = False
-    voice_clone_sample_seconds: Optional[int] = None
-    languages: List[str] = field(default_factory=list)
-    preset_voices: Optional[int] = None
-
-    # 3D-specific
-    output_formats: List[str] = field(default_factory=list)
-    pbr_materials: bool = False
-
-
-@dataclass
-class ModelDependencies:
-    """Dependencies for a model."""
-    required_nodes: List[Dict[str, Any]] = field(default_factory=list)
-    paired_models: List[Dict[str, str]] = field(default_factory=list)
-    incompatibilities: List[str] = field(default_factory=list)
-
-
-@dataclass
-class ModelExplanation:
-    """Pre-written explanation templates for a model."""
-    selected: Optional[str] = None
-    rejected_vram: Optional[str] = None
-    rejected_platform: Optional[str] = None
-
-
-@dataclass
-class CloudInfo:
-    """Cloud availability information."""
-    partner_node: bool = False
-    partner_service: Optional[str] = None
-    replicate: bool = False
-    estimated_cost_per_generation: Optional[float] = None
-
-
-@dataclass
-class HardwareInfo:
-    """
-    Hardware requirements and compatibility per SPEC Section 7.2.
-
-    These values are used by:
-    - SpaceConstrainedAdjustment: total_size_gb
-    - TOPSIS form factor penalty: compute_intensity
-    - ResolutionCascade: supports_cpu_offload, ram_for_offload_gb
-    - speed_fit criterion: supports_tensorrt
-    - Apple Silicon recommendations: mps_performance_penalty
-
-    Values can be explicitly set in YAML or derived from existing model data.
-    """
-    total_size_gb: float = 0.0           # Total disk space needed (model + VAE + aux)
-    compute_intensity: str = "medium"    # "high", "medium", "low" - affects laptop penalty
-    supports_cpu_offload: bool = True    # Can offload layers to RAM
-    ram_for_offload_gb: float = 0.0      # RAM needed for full model offload
-    supports_tensorrt: bool = False      # TensorRT optimization available
-    mps_performance_penalty: float = 1.0 # 0.0-1.0, penalty on Apple Silicon (1.0 = not supported)
-
-
-@dataclass
-class ModelEntry:
-    """
-    Complete model entry from the database.
-
-    Maps directly to the YAML schema defined in SPEC_v3 Section 7.
-    """
-    id: str
-    name: str
-    category: str
-    family: str
-    release_date: Optional[str] = None
-    license: Optional[str] = None
-    commercial_use: bool = True
-    description: Optional[str] = None
-    repository_url: Optional[str] = None
-
-    architecture: Dict[str, Any] = field(default_factory=dict)
-    variants: List[ModelVariant] = field(default_factory=list)
-    capabilities: ModelCapabilities = field(default_factory=ModelCapabilities)
-    dependencies: ModelDependencies = field(default_factory=ModelDependencies)
-    explanation: ModelExplanation = field(default_factory=ModelExplanation)
-    cloud: CloudInfo = field(default_factory=CloudInfo)
-    hardware: HardwareInfo = field(default_factory=HardwareInfo)
-
-    # Cloud-only models (no local variants)
-    provider: Optional[str] = None
-    pricing: Dict[str, float] = field(default_factory=dict)
-
-    # Source classification (two-tier architecture)
-    is_cloud_api: bool = False  # True if from cloud_apis section
-
-
-# =============================================================================
-# Platform Constants
+# Model Database Class
 # =============================================================================
 
 PLATFORM_KEYS = {
@@ -247,6 +123,7 @@ class ModelDatabase:
     # Subcategories within each primary category
     SUBCATEGORIES = [
         "custom_nodes",
+        "cli_provider",
         "image_generation",
         "image_editing",
         "image_interrogation",
@@ -431,6 +308,11 @@ class ModelDatabase:
             required_nodes=deps_data.get("required_nodes", []),
             paired_models=deps_data.get("paired_models", []),
             incompatibilities=deps_data.get("incompatibilities", []),
+            package=deps_data.get("package"),
+            package_type=deps_data.get("package_type"),
+            bin=deps_data.get("bin"),
+            api_key_name=deps_data.get("api_key_name"),
+            api_key_url=deps_data.get("api_key_url"),
         )
 
         # Parse explanation templates

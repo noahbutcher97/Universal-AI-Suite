@@ -57,19 +57,35 @@ class DevService:
 
     @property
     def _providers(self):
-        return config_manager.get_resources().get("modules", {}).get("cli_provider", {}).get("providers", {})
+        # Migrated: CLI providers now come from the relational database
+        from src.services.model_database import get_model_database
+        db = get_model_database()
+        return {m.id: m for m in db.get_models_by_category("cli_provider")}
 
     @staticmethod
     def get_all_providers() -> List[str]:
         """Returns a list of all available CLI provider keys."""
-        resources = config_manager.get_resources()
-        return list(resources.get("modules", {}).get("cli_provider", {}).get("providers", {}).keys())
+        from src.services.model_database import get_model_database
+        db = get_model_database()
+        return [m.id for m in db.get_models_by_category("cli_provider")]
 
     @staticmethod
     @lru_cache
     def get_provider_config(provider_name: str) -> Optional[dict]:
-        resources = config_manager.get_resources()
-        return resources.get("modules", {}).get("cli_provider", {}).get("providers", {}).get(provider_name)
+        """Get provider configuration from model database."""
+        from src.services.model_database import get_model_database
+        db = get_model_database()
+        model = db.get_model(provider_name)
+        if not model: return None
+        
+        # Convert ModelEntry to dict for compatibility
+        return {
+            "display_name": model.name,
+            "package": model.dependencies.package,
+            "package_type": model.dependencies.package_type,
+            "bin": model.dependencies.bin,
+            "api_key_name": model.dependencies.api_key_name
+        }
 
     @staticmethod
     def is_installed(provider_name: str) -> bool:
@@ -81,7 +97,7 @@ class DevService:
         if not tool: return False
         
         # Fast Path: Binary Check
-        if "bin" in tool and shutil.which(tool["bin"]):
+        if tool.get("bin") and shutil.which(tool["bin"]):
             return True
             
         # Slow Path: Package Manager Checks (Fallback if binary missing but package installed)

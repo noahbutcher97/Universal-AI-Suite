@@ -60,6 +60,138 @@ local_models:
         python_packages:
         - gguf
         required_nodes: []
+  cli_provider:
+    claude:
+      name: Claude Code
+      description: Anthropic's official CLI for coding and research.
+      family: claude
+      category: cli_provider
+      capabilities:
+        primary: ["coding", "research", "analysis"]
+        scores:
+          coding: 0.95
+          creative_writing: 0.9
+          analysis: 0.9
+      dependencies:
+        package: "@anthropic-ai/claude-code"
+        package_type: "npm"
+        bin: "claude"
+        api_key_name: "ANTHROPIC_API_KEY"
+        api_key_url: "https://console.anthropic.com/"
+      variants:
+        - id: "standard"
+          precision: "cloud"
+          vram_min_mb: 0
+          vram_recommended_mb: 0
+          download_size_gb: 0.05
+          platform_support:
+            windows_nvidia: {supported: true}
+            mac_mps: {supported: true}
+            linux_rocm: {supported: true}
+    gemini:
+      name: Gemini CLI
+      description: Google's AI assistant CLI powered by Gemini 1.5/2.0.
+      family: gemini
+      category: cli_provider
+      capabilities:
+        primary: ["coding", "multimodal", "analysis"]
+        scores:
+          coding: 0.8
+          creative_writing: 0.85
+          analysis: 0.9
+          multimodal: 0.95
+      dependencies:
+        package: "@google/gemini-cli"
+        package_type: "npm"
+        bin: "gemini"
+        api_key_name: "GEMINI_API_KEY"
+        api_key_url: "https://aistudio.google.com/app/apikey"
+      variants:
+        - id: "standard"
+          precision: "cloud"
+          vram_min_mb: 0
+          vram_recommended_mb: 0
+          download_size_gb: 0.05
+          platform_support:
+            windows_nvidia: {supported: true}
+            mac_mps: {supported: true}
+            linux_rocm: {supported: true}
+    openai:
+      name: OpenAI Codex
+      description: Official OpenAI command-line interface.
+      family: openai
+      category: cli_provider
+      capabilities:
+        primary: ["coding", "creative_writing", "analysis"]
+        scores:
+          coding: 0.9
+          creative_writing: 0.9
+          analysis: 0.9
+      dependencies:
+        package: "@openai/codex"
+        package_type: "npm"
+        bin: "codex"
+        api_key_name: "OPENAI_API_KEY"
+        api_key_url: "https://platform.openai.com/api-keys"
+      variants:
+        - id: "standard"
+          precision: "cloud"
+          vram_min_mb: 0
+          vram_recommended_mb: 0
+          download_size_gb: 0.05
+          platform_support:
+            windows_nvidia: {supported: true}
+            mac_mps: {supported: true}
+            linux_rocm: {supported: true}
+    ollama:
+      name: Ollama (Local AI)
+      description: Run Large Language Models locally on your own hardware.
+      family: ollama
+      category: cli_provider
+      capabilities:
+        primary: ["local_inference", "privacy"]
+        scores:
+          privacy: 1.0
+          local_execution: 1.0
+      dependencies:
+        package: "Ollama.Ollama"
+        package_type: "system"
+        bin: "ollama"
+      variants:
+        - id: "standard"
+          precision: "native"
+          vram_min_mb: 4000
+          vram_recommended_mb: 8000
+          download_size_gb: 4.5
+          platform_support:
+            windows_nvidia: {supported: true}
+            mac_mps: {supported: true}
+            linux_rocm: {supported: true}
+    huggingface:
+      name: Hugging Face CLI
+      description: Manage models and datasets from the Hugging Face Hub.
+      family: huggingface
+      category: cli_provider
+      capabilities:
+        primary: ["model_management", "analysis"]
+        scores:
+          analysis: 0.8
+      dependencies:
+        package: "huggingface_hub[cli]>=0.20.0"
+        package_type: "pip"
+        bin: "huggingface-cli"
+        api_key_name: "HF_TOKEN"
+        api_key_url: "https://huggingface.co/settings/tokens"
+      variants:
+        - id: "standard"
+          precision: "cloud"
+          vram_min_mb: 0
+          vram_recommended_mb: 0
+          download_size_gb: 0.1
+          platform_support:
+            windows_nvidia: {supported: true}
+            mac_mps: {supported: true}
+            linux_rocm: {supported: true}
     comfyui_ipadapter_plus:
       name: ComfyUI IPAdapter Plus
       description: Advanced image prompt adapters for style/subject transfer. Lightweight alternative to full image editing

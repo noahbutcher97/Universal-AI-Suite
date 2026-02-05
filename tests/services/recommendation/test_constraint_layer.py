@@ -20,16 +20,18 @@ from src.schemas.hardware import (
     CPUTier,
     RAMProfile,
 )
-from src.services.recommendation.constraint_layer import (
-    ConstraintSatisfactionLayer,
+from src.schemas.recommendation import (
     RejectionReason,
     PassingCandidate,
     RejectedCandidate,
+)
+from src.services.recommendation.constraint_layer import (
+    ConstraintSatisfactionLayer,
     MPS_SAFE_GGUF_QUANTS,
     MPS_UNSAFE_GGUF_PATTERNS,
     APPLE_SILICON_EXCLUDED_MODELS,
 )
-from src.services.model_database import ModelEntry, ModelVariant, PlatformSupport
+from src.schemas.model import ModelEntry, ModelVariant, PlatformSupport
 
 
 # =============================================================================

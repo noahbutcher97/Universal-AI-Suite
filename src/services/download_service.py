@@ -92,6 +92,26 @@ class DownloadService:
         """Initialize download service and persistent queue."""
         self._executor = None
         db_manager.init_db()
+        self._init_persistent_queue()
+
+    def _init_persistent_queue(self):
+        """
+        Reset any interrupted 'running' tasks to 'pending' on startup.
+        Per Task SYS-02.
+        """
+        session = db_manager.get_session()
+        try:
+            interrupted = session.query(DownloadTaskRecord).filter(
+                DownloadTaskRecord.status == "running"
+            ).all()
+            
+            if interrupted:
+                log.info(f"Resetting {len(interrupted)} interrupted download tasks to pending.")
+                for task in interrupted:
+                    task.status = "pending"
+                session.commit()
+        finally:
+            session.close()
 
     @staticmethod
     def download_file(

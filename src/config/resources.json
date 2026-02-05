@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "3.0",
   "use_cases": {
     "content_generation": {
       "display_name": "Content Generation",
@@ -53,7 +53,7 @@
       "npm": {
         "name": "NPM", "desc": "Node Package Manager", "bin": "npm",
         "install": {
-          "windows": ["winget", "install", "-e", "--id", "OpenJS.NodeJS"],
+          "windows": ["winget", "install", "-e", "--id", "OpenJS.NodeJS", "--source", "winget"],
           "darwin": ["brew", "install", "node"],
           "linux": ["sudo", "apt", "install", "-y", "npm"]
         }
@@ -88,14 +88,6 @@
           "windows": ["winget", "install", "-e", "--id", "OpenJS.NodeJS", "--source", "winget"],
           "darwin": ["brew", "install", "node"],
           "linux": ["sudo", "apt", "install", "-y", "nodejs", "npm"]
-        }
-      },
-      "npm": {
-        "name": "NPM", "desc": "Node Package Manager", "bin": "npm",
-        "install": {
-          "windows": ["winget", "install", "-e", "--id", "OpenJS.NodeJS", "--source", "winget"],
-          "darwin": ["brew", "install", "node"],
-          "linux": ["sudo", "apt", "install", "-y", "npm"]
         }
       },
       "go": {
@@ -199,64 +191,7 @@
   "modules": {
     "cli_provider": {
       "display_name": "AI Assistant CLI",
-      "providers": {
-        "claude": {
-          "display_name": "Claude Code",
-          "api_key_name": "ANTHROPIC_API_KEY",
-          "package": "@anthropic-ai/claude-code",
-          "package_type": "npm",
-          "bin": "claude",
-          "capabilities": { "coding": 0.95, "creative_writing": 0.9, "analysis": 0.9, "multimodal": 0.5 }
-        },
-        "gemini": {
-          "display_name": "Gemini CLI",
-          "api_key_name": "GEMINI_API_KEY",
-          "package": "@google/gemini-cli",
-          "package_type": "npm",
-          "bin": "gemini",
-          "capabilities": { "coding": 0.8, "creative_writing": 0.85, "analysis": 0.9, "multimodal": 0.95 }
-        },
-        "openai": {
-          "display_name": "OpenAI Codex",
-          "api_key_name": "OPENAI_API_KEY",
-          "package": "@openai/codex",
-          "package_type": "npm",
-          "bin": "codex",
-          "capabilities": { "coding": 0.9, "creative_writing": 0.9, "analysis": 0.9, "multimodal": 0.8 }
-        },
-        "grok": {
-          "display_name": "Grok CLI",
-          "api_key_name": "GROK_API_KEY",
-          "package": "@vibe-kit/grok-cli",
-          "package_type": "npm",
-          "bin": "grok",
-          "capabilities": { "coding": 0.8, "creative_writing": 0.85, "analysis": 0.85, "multimodal": 0.5 }
-        },
-        "deepseek": {
-          "display_name": "DeepSeek CLI",
-          "api_key_name": "DEEPSEEK_API_KEY",
-          "package": "run-deepseek-cli",
-          "package_type": "npm",
-          "bin": "deepseek",
-          "capabilities": { "coding": 0.9, "creative_writing": 0.8, "analysis": 0.85, "multimodal": 0.5 }
-        },
-        "ollama": {
-          "display_name": "Ollama (Local AI)",
-          "api_key_name": null,
-          "package": "Ollama.Ollama",
-          "package_type": "system",
-          "bin": "ollama",
-          "capabilities": { "local_inference": 1.0, "privacy": 1.0 }
-        },
-        "huggingface": {
-          "display_name": "Hugging Face CLI",
-          "api_key_name": "HF_TOKEN",
-          "package": "huggingface_hub[cli]>=0.20.0",
-          "package_type": "pip",
-          "bin": "huggingface-cli",
-          "capabilities": { "coding": 0.5, "creative_writing": 0.5, "analysis": 0.8, "multimodal": 0.5 }
-        }
-      },
+      "providers": {},
       "shortcut_templates": {
         "windows": "@echo off\ncmd /k {bin}",
         "darwin": "#!/bin/bash\n{bin}",
@@ -304,12 +239,6 @@
         "dest_folder": "custom_nodes/comfyui_controlnet_aux"
       }
     },
-    "model_tiers": {
-      "flux": { "min_vram": 12, "min_ram": 32 },
-      "sdxl": { "min_vram": 8, "min_ram": 16 },
-      "sd15": { "min_vram": 4, "min_ram": 8 },
-      "gguf": { "min_vram": 0, "min_ram": 16 }
-    },
     "__comment": "Models migrated to models_database.yaml. Use that as Source of Truth.",
     "workflows": {
       "wan_i2v_basic": {
@@ -319,33 +248,6 @@
         "required_models": ["wan_i2v_high_q5", "wan_i2v_low_q5"],
         "required_nodes": ["ComfyUI-GGUF", "ComfyUI-VideoHelperSuite"]
       }
-    }
-  },
-  "recommendation_config": {
-    "scoring_weights": {
-      "composite": { "hardware_fit": 0.50, "user_fit": 0.35, "approach_fit": 0.15 },
-      "user_fit_components": { "style_tag_match_bonus": 0.05, "style_tag_max_bonus": 0.20 },
-      "hardware_penalties": {
-        "quantization_required": -0.15,
-        "storage_over_50pct": -0.15,
-        "storage_hdd": -0.20,
-        "thermal_throttle_risk": -0.20,
-        "on_battery": -0.25
-      },
-      "hardware_bonuses": { "good_thermal_demanding_model": 0.05 },
-      "approach_penalties": { "too_many_nodes_for_simplicity": -0.20, "approach_mismatch": -0.40 }
-    },
-    "hard_limits": {
-      "flux_min_vram": 12,
-      "sdxl_min_vram": 8,
-      "video_min_vram": 8,
-      "storage_max_usage_pct": 0.8
-    },
-    "proficiency_thresholds": {
-      "beginner": {"ai_max": 2, "tech_max": 2},
-      "intermediate": {"either_min": 3},
-      "advanced": {"either_min": 4},
-      "expert": {"both_min": 4}
     }
   }
 }

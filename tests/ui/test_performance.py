@@ -5,7 +5,7 @@ import customtkinter as ctk
 
 from src.ui.wizard.components.model_comparison import ModelComparisonView
 from src.ui.wizard.components.model_card import ModelCard
-from src.schemas.recommendation import ModelCandidate, RecommendationResults, ModelCapabilityScores
+from src.schemas.recommendation import RankedCandidate, RecommendationResults
 from src.utils.performance_monitor import get_performance_monitor
 
 # Performance Thresholds (ms)
@@ -37,13 +37,19 @@ class TestUIPerformance(unittest.TestCase):
         self.monitor.clear()
         
         # Mock Data
-        self.mock_model = ModelCandidate(
-            id="test_model",
-            display_name="Test Model",
-            tier="sdxl",
-            capabilities=ModelCapabilityScores(),
-            requirements={"size_gb": 5.0}
-        )
+        self.mock_model = MagicMock(spec=RankedCandidate)
+        self.mock_model.id = "test_model"
+        self.mock_model.display_name = "Test Model"
+        self.mock_model.tier = "sdxl"
+        self.mock_model.composite_score = 0.9
+        self.mock_model.hardware_fit_score = 0.8
+        self.mock_model.content_similarity_score = 0.9
+        self.mock_model.speed_fit_score = 0.7
+        self.mock_model.user_fit_score = 0.8
+        self.mock_model.approach_fit_score = 0.9
+        self.mock_model.reasoning = ["Excellent fit"]
+        self.mock_model.requirements = {"size_gb": 5.0}
+        self.mock_model.required_nodes = []
         self.mock_results = RecommendationResults(
             local_recommendations=[self.mock_model] * 20,
             cloud_recommendations=[],

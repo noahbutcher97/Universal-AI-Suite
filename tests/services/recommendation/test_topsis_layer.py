@@ -9,13 +9,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 import math
 
-from src.services.recommendation.topsis_layer import (
-    TOPSISLayer,
-    CriterionScore,
-    RankedCandidate,
-)
-from src.services.recommendation.content_layer import ScoredCandidate, FeatureMatch
-from src.services.recommendation.constraint_layer import PassingCandidate
+from src.services.recommendation.topsis_layer import TOPSISLayer
 from src.schemas.hardware import (
     HardwareProfile,
     PlatformType,
@@ -24,7 +18,15 @@ from src.schemas.hardware import (
     StorageTier,
     RAMProfile,
 )
-from src.schemas.recommendation import UserProfile, ContentPreferences
+from src.schemas.recommendation import (
+    CriterionScore,
+    RankedCandidate,
+    ScoredCandidate,
+    FeatureMatch,
+    PassingCandidate,
+    UserProfile,
+    ContentPreferences
+)
 
 
 # --- Mock Objects ---

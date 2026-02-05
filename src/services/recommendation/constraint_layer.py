@@ -14,12 +14,12 @@ Constraints checked:
 - Model exclusions for Apple Silicon (e.g., HunyuanVideo)
 """
 
-from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple, Set
-from enum import Enum
 
 from src.schemas.hardware import HardwareProfile, CPUTier, PlatformType
-from src.services.model_database import ModelEntry, ModelVariant, ModelDatabase
+from src.schemas.model import ModelEntry, ModelVariant
+from src.schemas.recommendation import RejectionReason, RejectedCandidate, PassingCandidate
+from src.services.model_database import ModelDatabase
 
 
 # =============================================================================
@@ -57,39 +57,6 @@ APPLE_SILICON_ALTERNATIVES: Dict[str, List[str]] = {
     "hunyuan_video": ["animatediff", "wan_21_t2v"],
     "hunyuanvideo": ["animatediff", "wan_21_t2v"],
 }
-
-
-class RejectionReason(Enum):
-    """Reasons a model candidate was rejected."""
-    VRAM_INSUFFICIENT = "vram_insufficient"
-    PLATFORM_UNSUPPORTED = "platform_unsupported"
-    COMPUTE_CAPABILITY = "compute_capability"
-    STORAGE_INSUFFICIENT = "storage_insufficient"
-    CPU_CANNOT_OFFLOAD = "cpu_cannot_offload"
-    QUANTIZATION_UNAVAILABLE = "quantization_unavailable"
-    PAIRED_MODEL_MISSING = "paired_model_missing"
-    MPS_KQUANT_CRASH = "mps_kquant_crash"  # K-quant on Apple Silicon
-    APPLE_SILICON_EXCLUDED = "apple_silicon_excluded"  # Model excluded for Apple Silicon
-
-
-@dataclass
-class RejectedCandidate:
-    """A model that was rejected with explanation."""
-    model_id: str
-    model_name: str
-    reason: RejectionReason
-    details: str
-    suggestion: Optional[str] = None  # e.g., "Consider GGUF Q4 variant"
-    model: Optional[ModelEntry] = None  # Full model for explainer access to variants
-
-
-@dataclass
-class PassingCandidate:
-    """A model that passed constraint satisfaction."""
-    model: ModelEntry
-    variant: ModelVariant
-    execution_mode: str = "native"  # "native", "quantized", "gpu_offload"
-    warnings: List[str] = field(default_factory=list)
 
 
 class ConstraintSatisfactionLayer:
@@ -308,6 +275,20 @@ class ConstraintSatisfactionLayer:
         if self._can_offload_to_cpu(hardware, model):
             offload_variant = self._find_offload_variant(model, platform, hardware)
             if offload_variant:
+                # Storage space check for offload variant
+                if not self._check_storage_constraint(offload_variant, hardware):
+                    return RejectedCandidate(
+                        model_id=model.id,
+                        model_name=model.name,
+                        reason=RejectionReason.STORAGE_INSUFFICIENT,
+                        details=(
+                            f"Requires {offload_variant.download_size_gb:.1f}GB + OS headroom, "
+                            f"only {hardware.storage.free_gb:.1f}GB free"
+                        ),
+                        suggestion="Free up disk space or choose a cloud-based alternative",
+                        model=model,
+                    )
+
                 warnings = [
                     f"Model requires CPU offload (5-10x slower than native GPU)",
                     f"Using {offload_variant.precision} variant with partial GPU acceleration"
@@ -555,15 +536,23 @@ class ConstraintSatisfactionLayer:
         hardware: HardwareProfile,
     ) -> bool:
         """
-        Check storage space using dynamic headroom.
+        Check storage space using dynamic headroom from the provided profile.
         Per Task SYS-05.
         """
         if hardware.storage is None:
             return True
 
         from src.services.system_service import SystemService
-        path = hardware.storage.path or "."
-        return SystemService.check_storage_headroom(variant.download_size_gb, path)
+        
+        # Use profile data instead of re-scanning
+        free_gb = hardware.storage.free_gb
+        
+        # Calculate headroom based on the profile's RAM if available
+        ram_gb = hardware.ram.total_gb if hardware.ram else 16.0
+        from src.config.constants import STORAGE_SAFETY_BUFFER_GB
+        headroom = (ram_gb * 0.5) + STORAGE_SAFETY_BUFFER_GB
+        
+        return (free_gb - headroom) >= variant.download_size_gb
 
     def _can_offload_to_cpu(
         self,

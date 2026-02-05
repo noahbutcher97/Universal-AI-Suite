@@ -23,7 +23,7 @@ from src.schemas.recommendation import (
     CloudRankedCandidate,
     ContentPreferences,
 )
-from src.services.model_database import (
+from src.schemas.model import (
     ModelEntry,
     ModelCapabilities,
     CloudInfo,

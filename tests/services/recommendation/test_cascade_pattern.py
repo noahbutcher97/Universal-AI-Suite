@@ -11,7 +11,7 @@ from src.services.recommendation.resolution_cascade import (
     StandardResolutionCascade
 )
 from src.schemas.hardware import HardwareProfile
-from src.services.model_database import ModelEntry
+from src.schemas.model import ModelEntry
 
 class MockCascade(BaseResolutionCascade):
     """Subclass to test the template method hooks."""

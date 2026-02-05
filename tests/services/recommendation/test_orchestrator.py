@@ -6,11 +6,14 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.services.recommendation.orchestrator import RecommendationOrchestrator
 from src.schemas.hardware import HardwareProfile
-from src.schemas.recommendation import UserProfile
-from src.services.recommendation.constraint_layer import PassingCandidate, RejectedCandidate
-from src.services.model_database import ModelEntry
-from src.services.recommendation.content_layer import ScoredCandidate
-from src.services.recommendation.topsis_layer import RankedCandidate
+from src.schemas.model import ModelEntry
+from src.schemas.recommendation import (
+    UserProfile, 
+    PassingCandidate, 
+    RejectedCandidate,
+    ScoredCandidate,
+    RankedCandidate
+)
 
 class TestRecommendationOrchestrator:
     """Tests for coordination logic in the Orchestrator Facade."""

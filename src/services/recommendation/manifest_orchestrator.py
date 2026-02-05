@@ -9,9 +9,9 @@ cascading dependencies (VAE, nodes, encoders, adapters) to build
 
 from typing import List, Dict, Any, Optional, Set
 from src.schemas.installation import InstallationManifest, InstallationItem
-from src.schemas.recommendation import UserProfile
-from src.services.recommendation.topsis_layer import RankedCandidate
-from src.services.model_database import SQLiteModelDatabase, ModelEntry, ModelVariant
+from src.schemas.model import ModelEntry, ModelVariant
+from src.schemas.recommendation import UserProfile, RankedCandidate
+from src.services.model_database import SQLiteModelDatabase
 from src.utils.logger import log
 
 class ManifestOrchestrator:

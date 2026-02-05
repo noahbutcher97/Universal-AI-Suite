@@ -117,3 +117,34 @@ def test_failure_persistence(persist_service, monkeypatch):
     record = session.query(DownloadTaskRecord).filter_by(url=url).first()
     assert record.status == "failed"
     session.close()
+
+def test_resume_on_startup(persist_service, monkeypatch):
+    """Verify that tasks interrupted while 'running' are reset to 'pending' on init."""
+    url = "https://example.com/interrupted.bin"
+    dest = "interrupted.bin"
+    
+    # 1. Manually insert a 'running' task into DB
+    from src.services.database.models import DownloadTaskRecord
+    from src.services.download_service import db_manager
+    session = db_manager.get_session()
+    session.add(DownloadTaskRecord(
+        url=url, 
+        dest_path=dest, 
+        status="running",
+        priority=1
+    ))
+    session.commit()
+    session.close()
+    
+    # 2. Re-initialize service (should trigger cleanup)
+    new_service = DownloadService()
+    
+    # 3. Check if status was reset to pending
+    pending = new_service.get_pending_tasks()
+    assert len(pending) == 1
+    assert pending[0].url == url
+    
+    session = db_manager.get_session()
+    record = session.query(DownloadTaskRecord).filter_by(url=url).first()
+    assert record.status == "pending"
+    session.close()

@@ -5,12 +5,9 @@ Unit tests for SYS-05: Dynamic Storage Headroom Calculation.
 import pytest
 from unittest.mock import patch
 from src.services.system_service import SystemService
-from src.services.recommendation.constraint_layer import (
-    ConstraintSatisfactionLayer, 
-    RejectionReason,
-    PassingCandidate
-)
-from src.services.model_database import ModelEntry, ModelVariant
+from src.services.recommendation.constraint_layer import ConstraintSatisfactionLayer
+from src.schemas.recommendation import RejectionReason, PassingCandidate
+from src.schemas.model import ModelEntry, ModelVariant
 
 class TestStorageHeadroom:
     """Tests for storage headroom logic in SystemService and Constraint Layer."""

@@ -13,9 +13,9 @@ from typing import List, Dict, Callable, Optional, Set
 from enum import Enum
 
 from src.schemas.recommendation import (
-    ModelCandidate,
     CloudRankedCandidate,
-    RecommendationResults
+    RecommendationResults,
+    RankedCandidate
 )
 from src.ui.wizard.components.model_card import ModelCard
 from src.utils.performance_monitor import measure_time
@@ -525,7 +525,7 @@ class ModelComparisonView(ctk.CTkFrame):
             )
             self.show_more_btn.pack(pady=20)
 
-    def _sort_local_models(self, models: List[ModelCandidate]) -> List[ModelCandidate]:
+    def _sort_local_models(self, models: List[RankedCandidate]) -> List[RankedCandidate]:
         """Sort local models based on current lens."""
         if not models:
             return []
@@ -533,17 +533,15 @@ class ModelComparisonView(ctk.CTkFrame):
         if self.current_lens == ComparisonLens.RECOMMENDED:
             return sorted(models, key=lambda m: m.composite_score, reverse=True)
         elif self.current_lens == ComparisonLens.QUALITY:
-            return sorted(models, key=lambda m: getattr(m, 'user_fit_score', 0), reverse=True)
+            # Content Match score for modern RankedCandidate
+            return sorted(models, key=lambda m: m.content_similarity_score, reverse=True)
         elif self.current_lens == ComparisonLens.SPEED:
-            return sorted(
-                models,
-                key=lambda m: getattr(m.capabilities, 'generation_speed', 0) if hasattr(m, 'capabilities') else 0,
-                reverse=True
-            )
+            # Speed Fit score for modern RankedCandidate
+            return sorted(models, key=lambda m: m.speed_fit_score, reverse=True)
         elif self.current_lens in [ComparisonLens.COST, ComparisonLens.SIZE]:
             return sorted(
                 models,
-                key=lambda m: m.requirements.get('size_gb', float('inf')) if hasattr(m, 'requirements') else float('inf')
+                key=lambda m: m.requirements.get('size_gb', float('inf'))
             )
         return models
 

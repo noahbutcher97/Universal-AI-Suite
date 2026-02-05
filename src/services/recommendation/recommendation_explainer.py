@@ -16,13 +16,15 @@ from typing import List, Dict, Optional, Tuple
 from enum import Enum
 
 from src.schemas.hardware import HardwareProfile, PlatformType, CPUTier, StorageTier
-from src.services.recommendation.constraint_layer import (
+from src.schemas.recommendation import (
     PassingCandidate,
     RejectedCandidate,
     RejectionReason,
+    ScoredCandidate,
+    FeatureMatch,
+    RankedCandidate,
+    CriterionScore
 )
-from src.services.recommendation.content_layer import ScoredCandidate, FeatureMatch
-from src.services.recommendation.topsis_layer import RankedCandidate, CriterionScore
 
 
 class ExplanationType(Enum):

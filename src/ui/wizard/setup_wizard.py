@@ -24,6 +24,7 @@ from src.schemas.recommendation import (
     RecommendationResults,
     ModelCandidate,
     CloudRankedCandidate,
+    RankedCandidate
 )
 from src.schemas.environment import EnvironmentReport
 from src.schemas.hardware import HardwareProfile, PlatformType
@@ -677,22 +678,36 @@ class SetupWizard(ctk.CTkToplevel):
 
     def _run_install(self):
         """Run installation in background."""
-        # For MVP: Generate manifest from selected models
-        # TODO: Implement proper manifest generation from selected models
-        log.info("Starting installation...")
+        log.info("Starting real installation planning...")
 
-        # Simulate installation progress for now
-        import time
-        items = self.selected_local_models + self.selected_cloud_models
+        # 1. Map selected IDs back to objects
+        selected_objs = [
+            r for r in self.recommendation_results.local_recommendations
+            if r.id in self.selected_local_models
+        ]
 
-        for i, item in enumerate(items):
-            self.after(0, lambda n=item: self.prog_panel.update_progress(n, 0.0))
-            time.sleep(0.5)  # Simulate work
-            self.after(0, lambda n=item: self.prog_panel.update_progress(n, 1.0))
+        # 2. Generate full manifest (VAEs, Nodes, Encoders)
+        manifest = self.service.recommendation_service.generate_full_manifest(
+            self.user_profile,
+            selected_objs
+        )
 
-        # Complete
-        self.service.finalize()
-        self.after(0, self.show_complete_stage)
+        log.info(f"Generated manifest with {len(manifest.items)} items. Total size: {manifest.total_size_gb:.1f}GB")
+
+        # 3. Execute installation via service
+        success = self.service.execute_installation(
+            manifest,
+            progress_callback=self._on_progress,
+            error_callback=self._on_error
+        )
+
+        if success:
+            self.service.finalize()
+            self.after(0, self.show_complete_stage)
+        else:
+            log.error("Installation failed for some items.")
+            # Still show completion but maybe with warnings
+            self.after(0, self.show_complete_stage)
 
     def _on_progress(self, item_name: str, progress: float):
         """Handle installation progress update."""

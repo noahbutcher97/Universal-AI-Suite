@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from src.ui.wizard.components.model_comparison import ModelComparisonView
 from src.ui.wizard.components.model_card import ModelCard
-from src.schemas.recommendation import ModelCandidate, RecommendationResults, ModelCapabilityScores
+from src.schemas.recommendation import RankedCandidate, RecommendationResults
 from src.utils.performance_monitor import get_performance_monitor
 
 class BenchmarkSuite(unittest.TestCase):
@@ -30,13 +30,19 @@ class BenchmarkSuite(unittest.TestCase):
         self.monitor.clear()
         
         # Create base mock model
-        self.mock_model = ModelCandidate(
-            id="bench_model",
-            display_name="Benchmark Model",
-            tier="sdxl",
-            capabilities=ModelCapabilityScores(),
-            requirements={"size_gb": 5.0}
-        )
+        self.mock_model = MagicMock(spec=RankedCandidate)
+        self.mock_model.id = "bench_model"
+        self.mock_model.display_name = "Benchmark Model"
+        self.mock_model.tier = "sdxl"
+        self.mock_model.composite_score = 0.9
+        self.mock_model.hardware_fit_score = 0.8
+        self.mock_model.content_similarity_score = 0.9
+        self.mock_model.speed_fit_score = 0.7
+        self.mock_model.user_fit_score = 0.8
+        self.mock_model.approach_fit_score = 0.9
+        self.mock_model.reasoning = ["Benchmark quality"]
+        self.mock_model.requirements = {"size_gb": 5.0}
+        self.mock_model.required_nodes = []
 
     def pump_events(self, duration_ms: int = 100):
         """Simulate event loop processing."""

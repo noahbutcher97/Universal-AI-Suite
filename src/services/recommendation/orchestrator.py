@@ -10,20 +10,20 @@ Coordinates the 3-layer recommendation engine:
 
 from typing import List, Dict, Any, Optional, Tuple
 from src.schemas.hardware import HardwareProfile
+from src.schemas.model import ModelEntry, ModelVariant
 from src.schemas.recommendation import (
     UserProfile, 
     UseCaseDefinition, 
-    ModelCandidate,
-    RecommendationResults
+    RecommendationResults,
+    PassingCandidate,
+    RejectedCandidate,
+    ScoredCandidate,
+    RankedCandidate
 )
-from src.services.model_database import ModelDatabase, ModelEntry, ModelVariant
-from src.services.recommendation.constraint_layer import (
-    ConstraintSatisfactionLayer, 
-    PassingCandidate, 
-    RejectedCandidate
-)
-from src.services.recommendation.content_layer import ContentBasedLayer, ScoredCandidate
-from src.services.recommendation.topsis_layer import TOPSISLayer, RankedCandidate
+from src.services.model_database import ModelDatabase
+from src.services.recommendation.constraint_layer import ConstraintSatisfactionLayer
+from src.services.recommendation.content_layer import ContentBasedLayer
+from src.services.recommendation.topsis_layer import TOPSISLayer
 from src.services.hardware_snapshot_service import HardwareSnapshotService
 from src.utils.logger import log
 
@@ -50,7 +50,8 @@ class RecommendationOrchestrator:
         hardware: HardwareProfile,
         user_profile: UserProfile,
         use_case: str,
-        categories: Optional[List[str]] = None
+        categories: Optional[List[str]] = None,
+        skip_snapshot: bool = False
     ) -> Tuple[List[RankedCandidate], List[RejectedCandidate]]:
         """
         Execute the full 3-layer recommendation pipeline.
@@ -61,10 +62,11 @@ class RecommendationOrchestrator:
         log.info(f"Orchestrating recommendations for use_case: {use_case}")
         
         # 0. Take Hardware Snapshot (Task DB-02)
-        try:
-            self.snapshot_service.take_snapshot(hardware)
-        except Exception as e:
-            log.warning(f"Failed to capture hardware snapshot: {e}")
+        if not skip_snapshot:
+            try:
+                self.snapshot_service.take_snapshot(hardware)
+            except Exception as e:
+                log.warning(f"Failed to capture hardware snapshot: {e}")
 
         # 1. Layer 1: Filter by Hard Constraints (CSP)
         passing, rejected = self.constraint_layer.filter(

@@ -15,13 +15,15 @@ from src.services.recommendation.recommendation_explainer import (
     ModelExplanation,
     RecommendationReport,
 )
-from src.services.recommendation.constraint_layer import (
+from src.schemas.recommendation import (
     PassingCandidate,
     RejectedCandidate,
     RejectionReason,
+    ScoredCandidate,
+    FeatureMatch,
+    RankedCandidate,
+    CriterionScore
 )
-from src.services.recommendation.content_layer import ScoredCandidate, FeatureMatch
-from src.services.recommendation.topsis_layer import RankedCandidate, CriterionScore
 from src.schemas.hardware import (
     HardwareProfile,
     PlatformType,

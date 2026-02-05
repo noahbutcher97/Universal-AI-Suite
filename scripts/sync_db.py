@@ -66,7 +66,12 @@ def sync_yaml_to_db(custom_manager=None):
                 },
                 dependencies={
                     "required_nodes": entry.dependencies.required_nodes,
-                    "paired_models": entry.dependencies.paired_models
+                    "paired_models": entry.dependencies.paired_models,
+                    "package": entry.dependencies.package,
+                    "package_type": entry.dependencies.package_type,
+                    "bin": entry.dependencies.bin,
+                    "api_key_name": entry.dependencies.api_key_name,
+                    "api_key_url": entry.dependencies.api_key_url
                 },
                 explanation={
                     "selected": entry.explanation.selected,
