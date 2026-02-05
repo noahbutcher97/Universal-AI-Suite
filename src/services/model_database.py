@@ -959,9 +959,44 @@ class SQLiteModelDatabase:
         finally:
             session.close()
 
+    def get_models_by_category(self, category: str) -> List[ModelEntry]:
+        """Get all models in a category from the relational database."""
+        session = self.db_manager.get_session()
+        try:
+            db_models = session.query(self.DBModel).filter(self.DBModel.category == category).all()
+            return [self._to_model_entry(m) for m in db_models]
+        finally:
+            session.close()
+
+    def get_models_by_family(self, family: str) -> List[ModelEntry]:
+        """Get all models in a family from the relational database."""
+        session = self.db_manager.get_session()
+        try:
+            db_models = session.query(self.DBModel).filter(self.DBModel.family == family).all()
+            return [self._to_model_entry(m) for m in db_models]
+        finally:
+            session.close()
+
     def get_all_models(self) -> List[ModelEntry]:
         """Get all models from the relational database."""
         return list(self.iter_models())
+
+    def __len__(self) -> int:
+        """Return the number of models in the relational database."""
+        session = self.db_manager.get_session()
+        try:
+            return session.query(self.DBModel).count()
+        finally:
+            session.close()
+
+    def get_cloud_models(self) -> List[ModelEntry]:
+        """Get cloud models from the relational database."""
+        session = self.db_manager.get_session()
+        try:
+            db_models = session.query(self.DBModel).filter(self.DBModel.is_cloud_api == True).all()
+            return [self._to_model_entry(db_model) for db_model in db_models]
+        finally:
+            session.close()
 
     def get_required_nodes(self, model: ModelEntry, variant: ModelVariant) -> List[str]:
         """
@@ -1039,9 +1074,18 @@ class SQLiteModelDatabase:
         """Helper to convert DB Model to ModelEntry dataclass."""
         # Note: In the relational schema, these are stored as JSON blobs
         # and automatically deserialized by SQLAlchemy/JSON column.
-        # We wrap them in their respective dataclasses for the service layer.
         
         # Ensure we use the dataclasses defined in this file
+        # We use a robust filter to only pass known fields to dataclass constructors
+        def safe_init(cls, data):
+            if not data or not isinstance(data, dict):
+                return cls()
+            # Filter to only valid fields for this dataclass
+            import inspect
+            fields = inspect.signature(cls).parameters.keys()
+            filtered = {k: v for k, v in data.items() if k in fields}
+            return cls(**filtered)
+
         return ModelEntry(
             id=db_model.id,
             name=db_model.name,
@@ -1053,11 +1097,11 @@ class SQLiteModelDatabase:
             license=db_model.license,
             repository_url=db_model.repository_url,
             architecture=db_model.architecture or {},
-            capabilities=ModelCapabilities(**db_model.capabilities) if db_model.capabilities else ModelCapabilities(),
-            dependencies=ModelDependencies(**db_model.dependencies) if db_model.dependencies else ModelDependencies(),
-            explanation=ModelExplanation(**db_model.explanation) if db_model.explanation else ModelExplanation(),
-            cloud=CloudInfo(**db_model.cloud) if db_model.cloud else CloudInfo(),
-            hardware=HardwareInfo(**db_model.hardware) if db_model.hardware else HardwareInfo(),
+            capabilities=safe_init(ModelCapabilities, db_model.capabilities),
+            dependencies=safe_init(ModelDependencies, db_model.dependencies),
+            explanation=safe_init(ModelExplanation, db_model.explanation),
+            cloud=safe_init(CloudInfo, db_model.cloud),
+            hardware=safe_init(HardwareInfo, db_model.hardware),
             # Populate variants for iter_models usage
             variants=[self._to_model_variant(v) for v in db_model.variants]
         )
@@ -1066,15 +1110,24 @@ class SQLiteModelDatabase:
         """Helper to convert DB ModelVariant to ModelVariant dataclass."""
         # Note: platform_support is stored as a JSON dict in the DB.
         # It uses 'cc' for 'min_compute_capability' and 'supported' for 'supported'.
+        
+        # Robust filter for dataclass init
+        def safe_init(cls, data):
+            if not data or not isinstance(data, dict):
+                return cls()
+            import inspect
+            fields = inspect.signature(cls).parameters.keys()
+            # Map 'cc' back to 'min_compute_capability' if present
+            if 'cc' in data and 'min_compute_capability' in fields:
+                data['min_compute_capability'] = data.pop('cc')
+            filtered = {k: v for k, v in data.items() if k in fields}
+            return cls(**filtered)
+
         ps_dict = {}
         if db_variant.platform_support:
             for plat, data in db_variant.platform_support.items():
                 if isinstance(data, dict):
-                    ps_dict[plat] = PlatformSupport(
-                        supported=data.get("supported", False),
-                        min_compute_capability=data.get("cc") or data.get("min_compute_capability"),
-                        notes=data.get("notes")
-                    )
+                    ps_dict[plat] = safe_init(PlatformSupport, data)
                 elif isinstance(data, bool):
                     ps_dict[plat] = PlatformSupport(supported=data)
 
