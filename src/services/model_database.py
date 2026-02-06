@@ -673,11 +673,15 @@ class ModelDatabase:
         Returns:
             List of paired model IDs
         """
-        return [
-            pm.get("model_id", "")
-            for pm in model.dependencies.paired_models
-            if pm.get("model_id")
-        ]
+        results = []
+        for pm in model.dependencies.paired_models:
+            if isinstance(pm, str):
+                results.append(pm)
+            elif isinstance(pm, dict):
+                model_id = pm.get("model_id")
+                if model_id:
+                    results.append(model_id)
+        return results
 
     def iter_models(self) -> Iterator[ModelEntry]:
         """Iterate over all models."""
@@ -938,11 +942,15 @@ class SQLiteModelDatabase:
 
     def get_paired_models(self, model: ModelEntry) -> List[str]:
         """Get model IDs that must be used together with this model."""
-        return [
-            pm.get("model_id", "")
-            for pm in model.dependencies.paired_models
-            if pm.get("model_id")
-        ]
+        results = []
+        for pm in model.dependencies.paired_models:
+            if isinstance(pm, str):
+                results.append(pm)
+            elif isinstance(pm, dict):
+                model_id = pm.get("model_id")
+                if model_id:
+                    results.append(model_id)
+        return results
 
     def __contains__(self, model_id: str) -> bool:
         """Check if a model ID exists in the database."""

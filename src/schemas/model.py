@@ -60,7 +60,7 @@ class ModelCapabilities:
 class ModelDependencies:
     """Dependencies for a model."""
     required_nodes: List[Dict[str, Any]] = field(default_factory=list)
-    paired_models: List[Dict[str, str]] = field(default_factory=list)
+    paired_models: List[Any] = field(default_factory=list)
     incompatibilities: List[str] = field(default_factory=list)
     
     # Package metadata (for CLI/Tools)

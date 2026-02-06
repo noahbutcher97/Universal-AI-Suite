@@ -99,3 +99,34 @@ def test_rate_limit_reset():
     time.sleep(1.1)
     
     assert test_client.get("/test").status_code == 200
+
+def test_recommendation_integration():
+    """Verify end-to-end API recommendation flow."""
+    # 1. Get Token
+    token_resp = client.get("/admin/token/new?label=integration_test")
+    token = token_resp.json()["token"]
+    
+    # 2. POST Profile
+    profile_data = {
+        "primary_use_cases": ["txt2img"],
+        "content_preferences": {
+            "txt2img": {
+                "photorealism": 5,
+                "output_quality": 5
+            }
+        }
+    }
+    
+    response = client.post(
+        "/v1/recommendations/generate",
+        json=profile_data,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    assert response.status_code == 200
+    results = response.json()
+    assert "local_recommendations" in results
+    assert len(results["local_recommendations"]) > 0
+    # Top model should be high-quality (e.g. Flux or SDXL)
+    assert "flux" in results["local_recommendations"][0]["display_name"].lower() or \
+           "sdxl" in results["local_recommendations"][0]["display_name"].lower()

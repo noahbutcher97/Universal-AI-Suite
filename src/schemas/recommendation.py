@@ -77,25 +77,22 @@ class RankedCandidate:
     final_rank: int = 0
     explanation: str = ""
 
-    # Compatibility Layer properties to support legacy UI
-    @property
-    def id(self) -> str:
-        return self.scored_candidate.passing_candidate.model.id
+    # Explicit fields for API serialization
+    id: str = ""
+    display_name: str = ""
+    composite_score: float = 0.0
+    reasoning: List[str] = field(default_factory=list)
 
-    @property
-    def display_name(self) -> str:
+    def __post_init__(self):
+        """Populate compatibility fields."""
         model = self.scored_candidate.passing_candidate.model
         variant = self.scored_candidate.passing_candidate.variant
-        return f"{model.name} ({variant.precision.upper()})"
+        self.id = model.id
+        self.display_name = f"{model.name} ({variant.precision.upper()})"
+        self.composite_score = self.closeness_coefficient
+        self.reasoning = [self.explanation]
 
-    @property
-    def composite_score(self) -> float:
-        return self.closeness_coefficient
-
-    @property
-    def reasoning(self) -> List[str]:
-        return [self.explanation]
-
+    # Compatibility Layer properties to support legacy UI
     @property
     def tier(self) -> str:
         # Map to legacy tier names for UI

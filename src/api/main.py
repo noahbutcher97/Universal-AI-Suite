@@ -15,10 +15,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware.rate_limit import RateLimitMiddleware
 from src.services.auth_service import AgentAuthService
+from src.services.system_service import SystemService
+from src.services.recommendation_service import RecommendationService
+from src.schemas.recommendation import UserProfile, RecommendationResults
+from src.config.manager import config_manager
 from src.utils.logger import log
 
 # Initialize Services
 auth_service = AgentAuthService()
+system_service = SystemService()
+recommendation_service = RecommendationService(config_manager.get_resources())
 security = HTTPBearer()
 
 app = FastAPI(
@@ -62,17 +68,23 @@ async def health_check():
 @app.get("/v1/system/status", tags=["System"], dependencies=[Depends(verify_agent_auth)])
 async def get_system_status():
     """Get high-level hardware/software status."""
+    report = system_service.scan_full_environment()
     return {
-        "os": "Windows",
-        "gpu": "NVIDIA RTX 4090",
-        "vram_gb": 24.0,
+        "os": report.os_name,
+        "gpu": report.gpu_name,
+        "vram_gb": report.vram_gb,
+        "ram_gb": report.ram_gb,
+        "storage_free_gb": report.disk_free_gb,
+        "tier": report.recommended_model_tier,
         "api_active": True
     }
 
-@app.post("/v1/recommendations/generate", tags=["Recommendation"], dependencies=[Depends(verify_agent_auth)])
-async def generate_recommendations():
-    """Trigger a new recommendation run."""
-    return {"message": "Orchestration started"}
+@app.post("/v1/recommendations/generate", tags=["Recommendation"], response_model=RecommendationResults, dependencies=[Depends(verify_agent_auth)])
+async def generate_recommendations(profile: UserProfile):
+    """Trigger a new recommendation run using real hardware scan."""
+    env = system_service.scan_full_environment()
+    results = recommendation_service.generate_parallel_recommendations(profile, env)
+    return results
 
 # --- Admin Endpoints ---
 
