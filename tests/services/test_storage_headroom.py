@@ -44,11 +44,10 @@ class TestStorageHeadroom:
         mock_free.return_value = 30.0
         assert SystemService.check_storage_headroom(15.0) is False
 
-    @patch("src.services.system_service.SystemService.check_storage_headroom")
-    def test_constraint_layer_integration(self, mock_check, monkeypatch):
+    def test_constraint_layer_integration(self, monkeypatch):
         """Regression test: verify ConstraintLayer correctly rejects models based on headroom."""
         from src.services.model_database import ModelDatabase
-        from src.schemas.hardware import HardwareProfile, StorageProfile
+        from src.schemas.hardware import HardwareProfile, StorageProfile, RAMProfile
         
         # Mock Model DB
         mock_db = patch("src.services.model_database.ModelDatabase").start()
@@ -69,18 +68,21 @@ class TestStorageHeadroom:
         
         layer = ConstraintSatisfactionLayer(model_db=mock_db)
         
+        # Base Hardware (16GB RAM -> 18GB Headroom)
+        # 10GB Model + 18GB Headroom = 28GB Required
         hardware = HardwareProfile(
             gpu_vendor="nvidia", gpu_name="RTX 3060", vram_gb=12.0, platform="windows_nvidia",
+            ram=RAMProfile(total_gb=16.0, available_gb=12.0, usable_for_offload_gb=8.0, bandwidth_gbps=50.0),
             storage=StorageProfile(path=".", total_gb=1000, free_gb=50.0, storage_type="ssd", estimated_read_mbps=500)
         )
         
-        # Test 1: Headroom allows it
-        mock_check.return_value = True
+        # Test 1: Headroom allows it (50GB free > 28GB required)
+        hardware.storage.free_gb = 50.0
         result = layer._check_model(model, "windows_nvidia", 12000, 8.0, hardware)
         assert isinstance(result, PassingCandidate)
         
-        # Test 2: Headroom rejects it
-        mock_check.return_value = False
+        # Test 2: Headroom rejects it (25GB free < 28GB required)
+        hardware.storage.free_gb = 25.0
         result = layer._check_model(model, "windows_nvidia", 12000, 8.0, hardware)
         assert isinstance(result, RejectedCandidate)
         assert result.reason == RejectionReason.STORAGE_INSUFFICIENT

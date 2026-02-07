@@ -46,6 +46,11 @@ def test_relational_queries(test_db_manager):
     """Verify that SQLiteModelDatabase provides correct filtering with manual data."""
     session = test_db_manager.get_session()
     
+    # Clean up any residual data
+    session.query(ModelVariant).delete()
+    session.query(Model).delete()
+    session.commit()
+    
     # 1. Setup Manual Test Data
     m1 = Model(id="test_flux", name="Test Flux", category="image_generation", commercial_use=True)
     v1 = ModelVariant(

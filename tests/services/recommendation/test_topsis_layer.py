@@ -401,8 +401,9 @@ class TestClosenessComputation:
         layer = TOPSISLayer()
         candidate = create_mock_candidate()
         weighted = [{"a": 0.5, "b": 0.5}]
+        raw = [{"a": 0.5, "b": 0.5}]
 
-        ranked = layer._compute_closeness([candidate], weighted)
+        ranked = layer._compute_closeness([candidate], weighted, raw)
 
         # With only one candidate, it is both ideal and anti-ideal
         # d+ = 0, d- = 0, so closeness = 0.5 (defined behavior)
@@ -420,8 +421,9 @@ class TestClosenessComputation:
             {"a": 0.9, "b": 0.9},  # Best
             {"a": 0.1, "b": 0.1},  # Worst
         ]
+        raw = weighted  # Simple mock
 
-        ranked = layer._compute_closeness(candidates, weighted)
+        ranked = layer._compute_closeness(candidates, weighted, raw)
 
         # Best should have higher closeness
         best_cc = [r for r in ranked if r.scored_candidate.passing_candidate.model.id == "best"][0]
